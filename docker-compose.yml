@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - "POSTGRES_DB=cashflow_db"
+      - "POSTGRES_USER=yago_user"
+      - "POSTGRES_PASSWORD=password123"
+
+  web:
+    build: .
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    environment:
+      - "DATABASE_URL=postgres://yago_user:password123@db:5432/cashflow_db"
+    depends_on:
+      - db
+
+volumes:
+  postgres_data:

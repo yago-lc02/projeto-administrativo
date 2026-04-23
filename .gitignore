@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+
+# Django
+db.sqlite3
+media/
+staticfiles/
+
+# Docker
+.docker/
+
+# Banco de Dados (IMPORTANTE)
+# Ignora a pasta onde o volume do Postgres salva os dados no seu PC
+pgdata/
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Documentos
+passo_a_passo.txt
