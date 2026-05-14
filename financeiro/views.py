@@ -70,6 +70,19 @@ class SalvarDadosNFView(APIView):
                 defaults={'tipo': 'DESPESA'}
             )
 
+            # 1. Verifique se a nota já existe antes de criar qualquer coisa
+            nota_numero = dados['Número da Nota Fiscal']
+            ja_existe = MovimentoContas.objects.filter(
+                pessoa=fornecedor,
+                numero_nota=nota_numero
+            ).exists()
+
+            if ja_existe:
+                return Response(
+                    {"message": "Dados já cadastrados: Esta nota fiscal já foi lançada para este fornecedor."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
             # 3. Criando o Movimento (Regra 4 do PDF)
             movimento = MovimentoContas.objects.create(
                 tipo='A PAGAR',
