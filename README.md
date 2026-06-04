@@ -1,9 +1,9 @@
 Como rodar o projeto
 
-Clone o repositório: git clone https://github.com/yago-lc02/analise-nfe-etapa2
+Clone o repositório: git clone https://github.com/yago-lc02/busca-rag
 
-Entre na pasta: cd analise_json_nfe
+Entre na pasta: cd busca-rag
 
 Suba o ambiente: docker-compose up -d --build
 
-Acesse o Admin para conferir os lançamentos: http://localhost:8000/admin
+Acesse o Admin para conferir os lançamentos: http://localhost:8001/admin
