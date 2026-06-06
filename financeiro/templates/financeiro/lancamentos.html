@@ -1,0 +1,146 @@
+{% extends 'financeiro/base.html' %}
+
+{% block content %}
+{% load l10n %}
+
+<div class="card-custom">
+    <h5 class="card-title-custom">Lançamentos Financeiros</h5>
+    <form method="GET" action="{% url 'listar_lancamentos' %}" class="row g-3">
+        <div class="col-md-3">
+            <label class="form-label font-weight-bold">Descrição</label>
+            <input type="text" name="descricao" class="form-control" placeholder="Digite a descrição..." value="{{ request.GET.descricao }}">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label font-weight-bold">Tipo</label>
+            <select name="tipo" class="form-control">
+                <option value="">Selecione...</option>
+                {% if request.GET.tipo == 'A RECEBER' %}
+                    <option value="A RECEBER" selected>Receita</option>
+                {% else %}
+                    <option value="A RECEBER">Receita</option>
+                {% endif %}
+                {% if request.GET.tipo == 'A PAGAR' %}
+                    <option value="A PAGAR" selected>Despesa</option>
+                {% else %}
+                    <option value="A PAGAR">Despesa</option>
+                {% endif %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label font-weight-bold">Parceiro</label>
+            <select name="pessoa" class="form-control">
+                <option value="">Selecione...</option>
+                {% for pessoa in pessoas %}
+                    {% if request.GET.pessoa == pessoa.id|stringformat:"s" %}
+                        <option value="{{ pessoa.id }}" selected>{{ pessoa.nome_razao_social }}</option>
+                    {% else %}
+                        <option value="{{ pessoa.id }}">{{ pessoa.nome_razao_social }}</option>
+                    {% endif %}
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3 d-flex align-items-end gap-2">
+            <button type="submit" class="btn btn-verde w-50 fw-bold">Consultar</button>
+            <a href="{% url 'listar_lancamentos' %}?todos=true" class="btn btn-secondary w-50 fw-bold d-flex align-items-center justify-content-center">TODOS</a>
+        </div>
+    </form>
+</div>
+
+<div class="card-custom">
+
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+        <div class="d-flex gap-2">
+            <button onclick="executarAcao('incluir')" class="btn btn-sm btn-outline-success px-3 fw-bold">＋ Incluir</button>
+            <button onclick="executarAcao('alterar')" class="btn btn-sm btn-outline-primary px-3 fw-bold">✏️ Alterar</button>
+            <button onclick="executarAcao('excluir')" class="btn btn-sm btn-outline-danger px-3 fw-bold">🗑️ Excluir</button>
+        </div>
+        <div>
+            <button onclick="executarAcao('parcelas')" class="btn btn-sm btn-outline-warning px-4 fw-bold shadow-sm">⚙️ Gerar Parcelas</button>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-bordered table-hover align-middle">
+            <thead class="table-success">
+                <tr class="text-center align-middle">
+                    <th style="width: 5%;">#</th>
+                    <th style="width: 10%;">Código</th>
+                    <th style="width: 30%;">Descrição</th> <th style="width: 20%;">Parceiro</th>
+                    <th style="width: 10%;">Tipo</th>
+                    <th style="width: 10%;">Data Emissão</th>
+                    <th style="width: 20%;">Valor Total</th> </tr>
+            </thead>
+            <tbody>
+                {% if error_msg %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted py-4">
+                            {{ error_msg }}
+                        </td>
+                    </tr>
+                {% elif movimentos %}
+                    {% for mov in movimentos %}
+                    <tr>
+                        <td class="text-center">
+                            <input type="radio" name="movimento_selecionado" value="{{ mov.id }}" class="form-check-input">
+                        </td>
+                        <td class="text-center">{{ mov.id|stringformat:"03d" }}</td>
+                        <td title="{{ mov.descricao_produtos }}">{{ mov.descricao_produtos|truncatechars:150 }}</td>
+                        <td>{{ mov.pessoa.nome_razao_social }}</td>
+                        <td class="text-center">
+                            {% if mov.tipo == 'A RECEBER' %}
+                                <span class="badge badge-receita px-3 py-2 rounded-pill">Receita</span>
+                            {% else %}
+                                <span class="badge badge-despesa px-3 py-2 rounded-pill">Despesa</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">{{ mov.data_emissao|date:"d/m/Y" }}</td>
+                        <td class="text-end pe-3">R$ {{ mov.valor_total|localize }}</td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted py-5">
+                            <div class="d-flex flex-column align-items-center">
+                                🔍
+                                Utilize os filtros acima ou clique em "TODOS" para carregar os lançamentos ativos do sistema.
+                            </div>
+                        </td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    // Função em JS para capturar a linha selecionada e direcionar para os fluxos do Django
+    function getSelectedId() {
+        const selected = document.querySelector('input[name="movimento_selecionado"]:checked');
+        return selected ? selected.value : null;
+    }
+
+    function ejecutarAcao(acao) {
+        const id = getSelectedId();
+
+        if (acao === 'incluir') {
+            window.location.href = "{% url 'incluir_lancamento' %}";
+            return;
+        }
+
+        if (!id) {
+            alert('Por favor, selecione um lançamento na tabela usando o botão circular da lateral esquerda.');
+            return;
+        }
+
+        if (acao === 'alterar') {
+            window.location.href = `/financeiro/alterar/${id}/`;
+        } else if (acao === 'excluir') {
+            if(confirm('Deseja realmente inativar este registro do sistema?')) {
+                window.location.href = `/financeiro/excluir/${id}/`;
+            }
+        } else if (acao === 'parcelas') {
+            window.location.href = `/financeiro/parcelas/${id}/`;
+        }
+    }
+</script>
+{% endblock %}

@@ -78,15 +78,18 @@ WSGI_APPLICATION = 'core.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
+import os
+
+# Configuração Nativa e Dinâmica para o Docker
 DATABASES = {
     'default': {
-       'ENGINE': 'django.db.backends.postgresql',
-       'NAME': 'cashflow_db',      # Nome do banco que o Docker vai criar
-       'USER': 'yago_user',        # Seu usuário
-       'PASSWORD': 'password123',  # Sua senha
-       'HOST': 'analise_json_nfe_db',  # ◄ O segredo está aqui! Aponta para o container da N2
-       'PORT': '5432',             # Porta padrão do Postgres
-   }
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'cashflow_db',
+        'USER': 'yago_user',
+        'PASSWORD': 'password123',
+        'HOST': 'projeto_final_db',  # ◄ Aponta para o serviço criado acima no mesmo arquivo
+        'PORT': '5432',
+    }
 }
 
 # Password validation
@@ -119,6 +122,9 @@ USE_I18N = True
 
 USE_TZ = True
 
+# Adicione estas duas linhas aqui embaixo para ativar os pontos de milhar 🇧🇷
+USE_THOUSAND_SEPARATOR = True
+THOUSAND_SEPARATOR = '.'
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.0/howto/static-files/

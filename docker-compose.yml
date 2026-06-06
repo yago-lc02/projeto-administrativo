@@ -1,9 +1,10 @@
-name: busca-rag
+name: projeto_administrativo
 
 services:
+  # 1. O contêiner da sua Aplicação Django
   web:
     build: .
-    container_name: busca_rag_web
+    container_name: projeto_final_web
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - .:/app
@@ -12,11 +13,23 @@ services:
     env_file:
       - .env
     environment:
-      # Conecta na URL do banco oficial que roda lá no container da N2
-      - "DATABASE_URL=postgres://yago_user:password123@analise_json_nfe_db:5432/cashflow_db"
-    networks:
-      - analise-json-nfe_default
+      - "DATABASE_HOST=projeto_final_db"
+    depends_on:
+      - db
 
-networks:
-  analise-json-nfe_default:
-    external: true
+  # 2. O contêiner do seu Banco de Dados (trazido para cá)
+  db:
+    image: postgres:15
+    container_name: projeto_final_db
+    environment:
+      POSTGRES_DB: cashflow_db
+      POSTGRES_USER: yago_user
+      POSTGRES_PASSWORD: password123
+    ports:
+      - "5432:5432"
+    volumes:
+      # Aponta para o volume físico mapeado no seu gitignore para não perder dados locais
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

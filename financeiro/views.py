@@ -7,7 +7,12 @@ from rest_framework.response import Response
 from rest_framework import status
 from .models import Pessoa, Classificacao, MovimentoContas, ParcelaContas
 from uuid import uuid4
+from django.shortcuts import render
 
+
+# =========================================================================
+# CLASSE DE INTELIGÊNCIA ARTIFICIAL (RAG) - CONSERVADA E INTOCADA 🚀
+# =========================================================================
 class ConsultaRAGView(APIView):
     def post(self, request):
         pergunta = request.data.get('pergunta', '')
@@ -33,7 +38,9 @@ class ConsultaRAGView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         if not movimentos:
-            return Response({"resposta": "Nenhum registro de movimentação financeira foi localizado no banco de dados atualmente."}, status=status.HTTP_200_OK)
+            return Response(
+                {"resposta": "Nenhum registro de movimentação financeira foi localizado no banco de dados atualmente."},
+                status=status.HTTP_200_OK)
 
         contexto_banco = ""
 
@@ -57,7 +64,8 @@ class ConsultaRAGView(APIView):
                     cat = getattr(c, 'categoria', '')
                     tipo_c = getattr(c, 'tipo', '')
                     classificacoes_lista.append(f"[{desc} ({cat}) - {tipo_c}]")
-                texto_classificacoes = " , ".join(classificacoes_lista) if classificacoes_lista else "Sem classificação registrada"
+                texto_classificacoes = " , ".join(
+                    classificacoes_lista) if classificacoes_lista else "Sem classificação registrada"
 
                 # 3. Dados Básicos do Movimento
                 num_nota = getattr(mov, 'numero_nota', 'S/N')
@@ -106,8 +114,10 @@ class ConsultaRAGView(APIView):
 
                     classificacoes_lista = []
                     for c in mov.classificacoes.all():
-                        classificacoes_lista.append(f"categoria {getattr(c, 'categoria', '')} descrita como {getattr(c, 'descricao', '')} classificada tipo {getattr(c, 'tipo', '')}")
-                    texto_classificacoes = " e ".join(classificacoes_lista) if classificacoes_lista else "sem classificações de categorias"
+                        classificacoes_lista.append(
+                            f"categoria {getattr(c, 'categoria', '')} descrita como {getattr(c, 'descricao', '')} classificada tipo {getattr(c, 'tipo', '')}")
+                    texto_classificacoes = " e ".join(
+                        classificacoes_lista) if classificacoes_lista else "sem classificações de categorias"
 
                     num_nota = getattr(mov, 'numero_nota', 'S/N')
                     val_total = getattr(mov, 'valor_total', '0.00')
@@ -117,7 +127,8 @@ class ConsultaRAGView(APIView):
                     parcelas_info = []
                     parcelas = ParcelaContas.objects.filter(movimento=mov)
                     for p_obj in parcelas:
-                        parcelas_info.append(f"parcela número {getattr(p_obj, 'numero_parcela', '1')} com valor de R$ {getattr(p_obj, 'valor_parcela', '0.00')} vencendo em {getattr(p_obj, 'data_vencimento', 'Não informada')}")
+                        parcelas_info.append(
+                            f"parcela número {getattr(p_obj, 'numero_parcela', '1')} com valor de R$ {getattr(p_obj, 'valor_parcela', '0.00')} vencendo em {getattr(p_obj, 'data_vencimento', 'Não informada')}")
                     texto_parcelas = ", ".join(parcelas_info) if parcelas_info else "sem parcelas detalhadas"
 
                     # Texto descritivo unificado com todas as relações reais do banco
@@ -125,7 +136,7 @@ class ConsultaRAGView(APIView):
                         f"Nota Fiscal Número: {num_nota}. Fornecedor Emitente: {nome_fornecedor}, também conhecido pelo nome fantasia {fantasia_fornecedor}, "
                         f"inscrito no documento fiscal CNPJ ou CPF número {cnpj_cpf}, enquadrado como tipo de pessoa {tipo_pessoa}. "
                         f"Valor Total do movimento: R$ {val_total}. Classificações financeiras atreladas: {texto_classificacoes}. "
-                        f"Natureza da operação: {tipo_mov}. Emitido na data de: {dt_emissao}. "
+                        f"Natureza da operation: {tipo_mov}. Emitido na data de: {dt_emissao}. "
                         f"Cronograma de parcelamento registrado: {texto_parcelas}."
                     )
 
@@ -146,7 +157,8 @@ class ConsultaRAGView(APIView):
                 trechos_e_scores.sort(key=lambda x: x[0], reverse=True)
                 melhores_contextos = [trecho for score, trecho in trechos_e_scores[:3]]
 
-                contexto_banco = "CONTEXTO SEMÂNTICO SELECIONADO POR PROXIMIDADE VETORIAL:\n" + "\n".join(melhores_contextos)
+                contexto_banco = "CONTEXTO SEMÂNTICO SELECIONADO POR PROXIMIDADE VETORIAL:\n" + "\n".join(
+                    melhores_contextos)
 
             except Exception as e:
                 return Response({"error": f"Erro no pipeline de Embeddings: {str(e)}"},
@@ -175,5 +187,46 @@ class ConsultaRAGView(APIView):
             )
             return Response({"resposta": response.text}, status=status.HTTP_200_OK)
         except Exception as e:
-            return Response({"error": f"Erro na API do Gemini durante a geração: {str(e)}"},
+            return Response({"error": f"Erro na API do Gemini durante a generation: {str(e)}"},
                             status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# =========================================================================
+# INTERFACE GRÁFICA (TELA DE LANÇAMENTOS) - REGRAS DA ETAPA 4 🎨
+# =========================================================================
+def listar_lancamentos(request):
+    """
+    Controlador responsável por renderizar a tela do primeiro protótipo (CASHFLOW).
+    Aplica rigorosamente as regras do PDF do professor.
+    """
+    # Sempre carregamos os parceiros ATIVOS para popular o filtro Select
+    pessoas = Pessoa.objects.filter(status_ativo=True).order_by('nome_razao_social')
+
+    # Captura os parâmetros de busca do formulário
+    descricao = request.GET.get('descricao', '').strip()
+    tipo = request.GET.get('tipo', '').strip()
+    pessoa_id = request.GET.get('pessoa', '').strip()
+    todos = request.GET.get('todos', '').strip()
+
+    # REGRA DO PROFESSOR: A tabela nasce estritamente vazia
+    movimentos = None
+
+    # Se o usuário acionou o botão "TODOS" ou clicou em "Consultar" com algum filtro preenchido
+    if todos == 'true' or descricao or tipo or pessoa_id:
+        # REGRA DO PROFESSOR: Traz apenas registros cujo status_ativo seja True (Exclusão lógica)
+        movimentos = MovimentoContas.objects.filter(pessoa__status_ativo=True).select_related('pessoa').order_by('-data_emissao')
+
+        # Filtros combinados multi-elemento cumulativos
+        if descricao:
+            movimentos = movimentos.filter(descricao_produtos__icontains=descricao)
+        if tipo:
+            movimentos = movimentos.filter(tipo=tipo)
+        if pessoa_id:
+            movimentos = movimentos.filter(pessoa_id=pessoa_id)
+
+    context = {
+        'movimentos': movimentos,
+        'pessoas': list(pessoas),
+    }
+
+    return render(request, 'financeiro/lancamentos.html', context)

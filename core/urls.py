@@ -3,5 +3,5 @@ from django.urls import path, include
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', include('financeiro.urls')),  # ◄ Essa linha aponta para o seu arquivo de rotas do app
+    path('financeiro/', include('financeiro.urls')),  # Adicionado prefixo 'financeiro/' para alinhar com o frontend
 ]
