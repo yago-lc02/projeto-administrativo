@@ -68,7 +68,7 @@
                     <th style="width: 30%;">Descrição</th> <th style="width: 20%;">Parceiro</th>
                     <th style="width: 10%;">Tipo</th>
                     <th style="width: 10%;">Data Emissão</th>
-                    <th style="width: 20%;">Valor Total</th> </tr>
+                    <th style="width: 15%; white-space: nowrap;">Valor Total</th> </tr>
             </thead>
             <tbody>
                 {% if error_msg %}
@@ -94,7 +94,7 @@
                             {% endif %}
                         </td>
                         <td class="text-center">{{ mov.data_emissao|date:"d/m/Y" }}</td>
-                        <td class="text-end pe-3">R$ {{ mov.valor_total|localize }}</td>
+                        <td class="text-end pe-3" style="white-space: nowrap;">R$ {{ mov.valor_total|localize }}</td>
                     </tr>
                     {% endfor %}
                 {% else %}
@@ -119,12 +119,15 @@
         return selected ? selected.value : null;
     }
 
-    function ejecutarAcao(acao) {
+    function executarAcao(acao) {
         const id = getSelectedId();
 
         if (acao === 'incluir') {
+
             window.location.href = "{% url 'incluir_lancamento' %}";
             return;
+        } else if (acao === 'alterar'){
+            // ... (lógica do seu colega ou próxima etapa)
         }
 
         if (!id) {
@@ -142,5 +145,7 @@
             window.location.href = `/financeiro/parcelas/${id}/`;
         }
     }
+
+
 </script>
 {% endblock %}
