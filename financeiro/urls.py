@@ -11,6 +11,6 @@ urlpatterns = [
     # Rotas Auxiliares que o template precisa reconhecer para os botões funcionarem:
     path('incluir/', views.listar_lancamentos, name='incluir_lancamento'), # Temporário apontando para a listagem
     path('alterar/<int:pk>/', views.listar_lancamentos, name='alterar_lancamento'), # Temporário
-    path('excluir/<int:pk>/', views.listar_lancamentos, name='excluir_lancamento'), # Temporário
+    path('lancamentos/excluir/', views.excluir_lancamento, name='excluir_lancamento'),
     path('parcelas/<int:pk>/', views.listar_lancamentos, name='gerar_parcelas'), # Temporário
 ]

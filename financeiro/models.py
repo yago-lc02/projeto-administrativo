@@ -59,6 +59,7 @@ class MovimentoContas(models.Model):
     data_emissao = models.DateField()  # [cite: 354-355]
     valor_total = models.DecimalField(max_digits=15, decimal_places=2)  # [cite: 356, 358]
     descricao_produtos = models.TextField(blank=True, null=True)  # [cite: 357, 359]
+    status_ativo = models.BooleanField(default=True)
 
     # Chave Estrangeira para Pessoas [cite: 341, 360]
     pessoa = models.ForeignKey(Pessoa, on_delete=models.PROTECT, related_name='movimentos')
