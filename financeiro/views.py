@@ -1,14 +1,27 @@
 import os
+import json
+import numpy as np
+from decimal import Decimal
+from datetime import timedelta
+
 from google import genai
-import numpy as np  # ◄ Import da biblioteca matemática para cálculo de vetores
-from google.genai import types  # Caso precise de tipos futuramente
+from google.genai import types
+
+from django.shortcuts import render, get_object_or_404
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+
 from .models import Pessoa, Classificacao, MovimentoContas, ParcelaContas
 from uuid import uuid4
 from django.shortcuts import render, redirect
+from datetime import timedelta
+from django.utils.crypto import get_random_string
 from django.contrib import messages
+
 
 # =========================================================================
 # CLASSE DE INTELIGÊNCIA ARTIFICIAL (RAG) - CONSERVADA E INTOCADA 🚀
