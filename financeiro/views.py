@@ -1,13 +1,21 @@
 import os
+import json
+import numpy as np
+from decimal import Decimal
+from datetime import timedelta
+
 from google import genai
-import numpy as np  # ◄ Import da biblioteca matemática para cálculo de vetores
-from google.genai import types  # Caso precise de tipos futuramente
+from google.genai import types
+
+from django.shortcuts import render, get_object_or_404
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+
 from .models import Pessoa, Classificacao, MovimentoContas, ParcelaContas
-from uuid import uuid4
-from django.shortcuts import render
 
 
 # =========================================================================
@@ -230,3 +238,63 @@ def listar_lancamentos(request):
     }
 
     return render(request, 'financeiro/lancamentos.html', context)
+
+
+# =========================================================================
+# GERAÇÃO DE PARCELAS DINÂMICAS ⚙️
+# =========================================================================
+from django.db import transaction
+
+@csrf_exempt
+def gerar_parcelas_api(request):
+    """
+    Recebe um POST via fetch() contendo o ID do movimento e a lista de parcelas geradas/editadas.
+    Salva as parcelas sequenciais no banco.
+    """
+    if request.method == 'POST':
+        try:
+            # 1. Captura e converte os dados que vieram do JavaScript
+            dados = json.loads(request.body)
+            movimento_id = dados.get('movimento_id')
+            parcelas_dados = dados.get('parcelas', [])
+
+            if not movimento_id or not parcelas_dados:
+                return JsonResponse({'sucesso': False, 'mensagem': 'Dados inválidos para parcelamento.'}, status=400)
+
+            # 2. Busca o lançamento original no banco de dados
+            movimento = get_object_or_404(MovimentoContas, id=movimento_id)
+
+            # 3. Criação das parcelas dentro de uma transação atômica
+            with transaction.atomic():
+                # Exclui parcelas antigas vinculadas a este movimento (permite regerar)
+                ParcelaContas.objects.filter(movimento=movimento).delete()
+
+                for p_dado in parcelas_dados:
+                    n_parcela = int(p_dado.get('numero_parcela'))
+                    valor_p = Decimal(str(p_dado.get('valor_parcela')))
+                    venc_p = p_dado.get('data_vencimento')
+                    status_p = p_dado.get('situacao', 'PENDENTE')
+
+                    # Mapeia PENDENTE -> ABERTO para compatibilidade com o banco de dados
+                    situacao_db = 'ABERTO' if status_p == 'PENDENTE' else 'PAGO'
+                    hash_identificador = f"ID-NF-{movimento.id}-P{n_parcela}"
+
+                    # Cria o objeto no banco de dados
+                    ParcelaContas.objects.create(
+                        movimento=movimento,
+                        numero_parcela=n_parcela,
+                        valor_parcela=valor_p,
+                        data_vencimento=venc_p,
+                        situacao=situacao_db,
+                        identificacao_unica=hash_identificador
+                    )
+
+            return JsonResponse({
+                'sucesso': True, 
+                'mensagem': f'{len(parcelas_dados)} parcelas salvas com sucesso!'
+            })
+
+        except Exception as e:
+            return JsonResponse({'sucesso': False, 'mensagem': str(e)}, status=500)
+
+    return JsonResponse({'sucesso': False, 'mensagem': 'Método não permitido.'}, status=405)

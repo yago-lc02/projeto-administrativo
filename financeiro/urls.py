@@ -8,6 +8,9 @@ urlpatterns = [
     # Nova rota para a interface visual da Etapa 4 (CASHFLOW) 🎨
     path('lancamentos/', views.listar_lancamentos, name='listar_lancamentos'),
 
+    # Rota para API de geração de parcelas ⚙️
+    path('api/gerar-parcelas/', views.gerar_parcelas_api, name='gerar_parcelas_api'),
+
     # Rotas Auxiliares que o template precisa reconhecer para os botões funcionarem:
     path('incluir/', views.listar_lancamentos, name='incluir_lancamento'), # Temporário apontando para a listagem
     path('alterar/<int:pk>/', views.listar_lancamentos, name='alterar_lancamento'), # Temporário

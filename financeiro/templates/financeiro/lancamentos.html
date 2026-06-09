@@ -8,22 +8,15 @@
     <form method="GET" action="{% url 'listar_lancamentos' %}" class="row g-3">
         <div class="col-md-3">
             <label class="form-label font-weight-bold">Descrição</label>
-            <input type="text" name="descricao" class="form-control" placeholder="Digite a descrição..." value="{{ request.GET.descricao }}">
+            <input type="text" name="descricao" class="form-control" placeholder="Digite a descrição..."
+                value="{{ request.GET.descricao }}">
         </div>
         <div class="col-md-3">
             <label class="form-label font-weight-bold">Tipo</label>
             <select name="tipo" class="form-control">
                 <option value="">Selecione...</option>
-                {% if request.GET.tipo == 'A RECEBER' %}
-                    <option value="A RECEBER" selected>Receita</option>
-                {% else %}
-                    <option value="A RECEBER">Receita</option>
-                {% endif %}
-                {% if request.GET.tipo == 'A PAGAR' %}
-                    <option value="A PAGAR" selected>Despesa</option>
-                {% else %}
-                    <option value="A PAGAR">Despesa</option>
-                {% endif %}
+                <option value="A RECEBER" {% if request.GET.tipo == 'A RECEBER' %}selected{% endif %}>Receita</option>
+                <option value="A PAGAR" {% if request.GET.tipo == 'A PAGAR' %}selected{% endif %}>Despesa</option>
             </select>
         </div>
         <div class="col-md-3">
@@ -31,31 +24,31 @@
             <select name="pessoa" class="form-control">
                 <option value="">Selecione...</option>
                 {% for pessoa in pessoas %}
-                    {% if request.GET.pessoa == pessoa.id|stringformat:"s" %}
-                        <option value="{{ pessoa.id }}" selected>{{ pessoa.nome_razao_social }}</option>
-                    {% else %}
-                        <option value="{{ pessoa.id }}">{{ pessoa.nome_razao_social }}</option>
-                    {% endif %}
+                <option value="{{ pessoa.id }}" {% if request.GET.pessoa == pessoa.id|stringformat:"s" %}selected{% endif %}>{{ pessoa.nome_razao_social }}</option>
                 {% endfor %}
             </select>
         </div>
         <div class="col-md-3 d-flex align-items-end gap-2">
             <button type="submit" class="btn btn-verde w-50 fw-bold">Consultar</button>
-            <a href="{% url 'listar_lancamentos' %}?todos=true" class="btn btn-secondary w-50 fw-bold d-flex align-items-center justify-content-center">TODOS</a>
+            <a href="{% url 'listar_lancamentos' %}?todos=true"
+                class="btn btn-secondary w-50 fw-bold d-flex align-items-center justify-content-center">TODOS</a>
         </div>
     </form>
 </div>
 
 <div class="card-custom">
-
     <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
         <div class="d-flex gap-2">
-            <button onclick="executarAcao('incluir')" class="btn btn-sm btn-outline-success px-3 fw-bold">＋ Incluir</button>
-            <button onclick="executarAcao('alterar')" class="btn btn-sm btn-outline-primary px-3 fw-bold">✏️ Alterar</button>
-            <button onclick="executarAcao('excluir')" class="btn btn-sm btn-outline-danger px-3 fw-bold">🗑️ Excluir</button>
+            <button onclick="executarAcao('incluir')" class="btn btn-sm btn-outline-success px-3 fw-bold">＋
+                Incluir</button>
+            <button onclick="executarAcao('alterar')" class="btn btn-sm btn-outline-primary px-3 fw-bold">✏️
+                Alterar</button>
+            <button onclick="executarAcao('excluir')" class="btn btn-sm btn-outline-danger px-3 fw-bold">🗑️
+                Excluir</button>
         </div>
         <div>
-            <button onclick="executarAcao('parcelas')" class="btn btn-sm btn-outline-warning px-4 fw-bold shadow-sm">⚙️ Gerar Parcelas</button>
+            <button onclick="executarAcao('parcelas')" class="btn btn-sm btn-outline-warning px-4 fw-bold shadow-sm">⚙️
+                Gerar Parcelas</button>
         </div>
     </div>
 
@@ -65,81 +58,364 @@
                 <tr class="text-center align-middle">
                     <th style="width: 5%;">#</th>
                     <th style="width: 10%;">Código</th>
-                    <th style="width: 30%;">Descrição</th> <th style="width: 20%;">Parceiro</th>
+                    <th style="width: 30%;">Descrição</th>
+                    <th style="width: 20%;">Parceiro</th>
                     <th style="width: 10%;">Tipo</th>
                     <th style="width: 10%;">Data Emissão</th>
-                    <th style="width: 20%;">Valor Total</th> </tr>
+                    <th style="width: 20%;">Valor Total</th>
+                </tr>
             </thead>
             <tbody>
                 {% if error_msg %}
-                    <tr>
-                        <td colspan="7" class="text-center text-muted py-4">
-                            {{ error_msg }}
-                        </td>
-                    </tr>
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-4">{{ error_msg }}</td>
+                </tr>
                 {% elif movimentos %}
-                    {% for mov in movimentos %}
-                    <tr>
-                        <td class="text-center">
-                            <input type="radio" name="movimento_selecionado" value="{{ mov.id }}" class="form-check-input">
-                        </td>
-                        <td class="text-center">{{ mov.id|stringformat:"03d" }}</td>
-                        <td title="{{ mov.descricao_produtos }}">{{ mov.descricao_produtos|truncatechars:150 }}</td>
-                        <td>{{ mov.pessoa.nome_razao_social }}</td>
-                        <td class="text-center">
-                            {% if mov.tipo == 'A RECEBER' %}
-                                <span class="badge badge-receita px-3 py-2 rounded-pill">Receita</span>
-                            {% else %}
-                                <span class="badge badge-despesa px-3 py-2 rounded-pill">Despesa</span>
-                            {% endif %}
-                        </td>
-                        <td class="text-center">{{ mov.data_emissao|date:"d/m/Y" }}</td>
-                        <td class="text-end pe-3">R$ {{ mov.valor_total|localize }}</td>
-                    </tr>
-                    {% endfor %}
+                {% for mov in movimentos %}
+                <tr>
+                    <td class="text-center align-middle">
+                        <input type="radio" name="linha_selecionada" value="{{ mov.id }}"
+                            data-valor-total="{{ mov.valor_total|unlocalize }}"
+                            data-descricao="{{ mov.descricao_produtos }}"
+                            data-data-emissao="{{ mov.data_emissao|date:'Y-m-d' }}">
+                    </td>
+                    <td class="text-center">{{ mov.id|stringformat:"03d" }}</td>
+                    <td title="{{ mov.descricao_produtos }}">{{ mov.descricao_produtos|truncatechars:150 }}</td>
+                    <td>{{ mov.pessoa.nome_razao_social }}</td>
+                    <td class="text-center">
+                        {% if mov.tipo == 'A RECEBER' %}
+                        <span class="badge badge-receita px-3 py-2 rounded-pill">Receita</span>
+                        {% else %}
+                        <span class="badge badge-despesa px-3 py-2 rounded-pill">Despesa</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">{{ mov.data_emissao|date:"d/m/Y" }}</td>
+                    <td class="text-end pe-3">R$ {{ mov.valor_total|localize }}</td>
+                </tr>
+                {% endfor %}
                 {% else %}
-                    <tr>
-                        <td colspan="7" class="text-center text-muted py-5">
-                            <div class="d-flex flex-column align-items-center">
-                                🔍
-                                Utilize os filtros acima ou clique em "TODOS" para carregar os lançamentos ativos do sistema.
-                            </div>
-                        </td>
-                    </tr>
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-5">
+                        <div class="d-flex flex-column align-items-center">
+                            🔍
+                            Utilize os filtros acima ou clique em "TODOS" para carregar os lançamentos ativos do
+                            sistema.
+                        </div>
+                    </td>
+                </tr>
                 {% endif %}
             </tbody>
         </table>
     </div>
 </div>
 
+<div class="modal fade" id="modalParcelas" tabindex="-1" aria-labelledby="modalParcelasLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="modalParcelasLabel">⚙️ Gerar Parcelas</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                    aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Título da seção interna -->
+                <h5 class="text-success border-bottom border-success pb-2 mb-3 fw-bold"
+                    style="border-bottom-style: dashed !important; border-bottom-width: 2px !important;">Detalhamento de
+                    Parcelas</h5>
+
+                <!-- Caixas Informativas superiores do Mockup -->
+                <div class="row g-2 mb-3">
+                    <div class="col-md-8">
+                        <div class="p-2 rounded"
+                            style="border: 2px dashed var(--verde-principal) !important; background-color: var(--verde-claro) !important; min-height: 70px;">
+                            <small class="fw-bold d-block"
+                                style="color: var(--verde-principal) !important; font-size: 0.75rem;">Descrição do
+                                Registro:</small>
+                            <span id="modal_registro_desc" class="text-dark small fw-semibold"></span>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-2 rounded text-end"
+                            style="border: 2px dashed var(--verde-principal) !important; background-color: var(--verde-claro) !important; min-height: 70px;">
+                            <small class="fw-bold d-block text-start"
+                                style="color: var(--verde-principal) !important; font-size: 0.75rem;">Valor
+                                Total:</small>
+                            <span id="modal_registro_valor" class="fw-bold text-dark fs-5"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Formulário com Inputs alinhados -->
+                <form id="formGerarParcelas">
+                    <input type="hidden" id="lancamento_id_parcela" name="lancamento_id">
+
+                    <div class="row g-2 align-items-end mb-4">
+                        <div class="col-md-4">
+                            <label for="qtd_parcelas" class="form-label fw-bold small text-muted">Qtd. de
+                                Parcelas</label>
+                            <input type="number" class="form-control" id="qtd_parcelas" name="qtd_parcelas" min="1"
+                                max="120" required placeholder="Ex: 3">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="primeiro_vencimento" class="form-label fw-bold small text-muted">1º
+                                Vencimento</label>
+                            <input type="date" class="form-control" id="primeiro_vencimento" required>
+                        </div>
+                        <div class="col-md-4">
+                            <button type="button" class="btn btn-verde fw-bold w-100 shadow-sm"
+                                onclick="gerarGrade()">Gerar Grade</button>
+                        </div>
+                    </div>
+
+                    <!-- Grade (Grid) de Visualização de Parcelas -->
+                    <div id="grid_parcelas_section" class="d-none">
+                        <div class="table-responsive rounded border mb-3" style="max-height: 250px; overflow-y: auto;">
+                            <table class="table table-bordered table-sm align-middle text-center small mb-0">
+                                <thead class="table-success text-white sticky-top">
+                                    <tr>
+                                        <th style="width: 15%;">Nº Parcela</th>
+                                        <th style="width: 30%;">Valor</th>
+                                        <th style="width: 35%;">Vencimento</th>
+                                        <th style="width: 20%;">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="grid_parcelas_body">
+                                    <!-- Gerado via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <!-- Rodapé do Modal -->
+            <div class="modal-footer border-0 d-flex justify-content-end gap-2">
+                <button type="button" class="btn btn-outline-success fw-bold px-4 shadow-sm"
+                    onclick="confirmarParcelamento()">Salvar</button>
+                <button type="button" class="btn btn-outline-secondary fw-bold px-4"
+                    onclick="limparGrade()">Limpar</button>
+                <button type="button" class="btn btn-outline-danger fw-bold px-4"
+                    data-bs-dismiss="modal">Cancelar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
-    // Função em JS para capturar a linha selecionada e direcionar para os fluxos do Django
-    function getSelectedId() {
-        const selected = document.querySelector('input[name="movimento_selecionado"]:checked');
-        return selected ? selected.value : null;
-    }
-
-    function ejecutarAcao(acao) {
-        const id = getSelectedId();
-
+    // Função unificada para todos os botões da tela
+    function executarAcao(acao) {
+        // Se for incluir, não precisa ter linha selecionada
         if (acao === 'incluir') {
             window.location.href = "{% url 'incluir_lancamento' %}";
             return;
         }
 
-        if (!id) {
-            alert('Por favor, selecione um lançamento na tabela usando o botão circular da lateral esquerda.');
+        // Para as outras ações, precisamos saber qual linha está selecionada
+        const selecionado = document.querySelector('input[name="linha_selecionada"]:checked');
+
+        if (!selecionado) {
+            alert('⚠️ Por favor, selecione um lançamento na tabela usando o botão circular da lateral esquerda.');
             return;
         }
+
+        const id = selecionado.value;
 
         if (acao === 'alterar') {
             window.location.href = `/financeiro/alterar/${id}/`;
         } else if (acao === 'excluir') {
-            if(confirm('Deseja realmente inativar este registro do sistema?')) {
+            if (confirm('Deseja realmente inativar este registro do sistema?')) {
                 window.location.href = `/financeiro/excluir/${id}/`;
             }
         } else if (acao === 'parcelas') {
-            window.location.href = `/financeiro/parcelas/${id}/`;
+            // Preenche o ID oculto, zera os inputs e abre o Modal
+            const inputQtd = document.getElementById('qtd_parcelas');
+            const inputVenc = document.getElementById('primeiro_vencimento');
+            const gridSection = document.getElementById('grid_parcelas_section');
+            const gridBody = document.getElementById('grid_parcelas_body');
+
+            const valorTotal = parseFloat(selecionado.getAttribute('data-valor-total'));
+            const valorFormatado = valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+            const dataEmissao = selecionado.getAttribute('data-data-emissao'); // YYYY-MM-DD
+
+            // Popula os campos do topo do modal
+            document.getElementById('lancamento_id_parcela').value = id;
+            document.getElementById('modal_registro_desc').innerText = selecionado.getAttribute('data-descricao') || 'Sem descrição';
+            document.getElementById('modal_registro_valor').innerText = valorFormatado;
+
+            // Configura os inputs
+            inputQtd.value = '';
+            inputQtd.dataset.valorTotal = selecionado.getAttribute('data-valor-total');
+
+            // Define o primeiro vencimento padrão estimado: data_emissao + 30 dias
+            if (dataEmissao) {
+                const parts = dataEmissao.split('-');
+                const dt = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+                dt.setDate(dt.getDate() + 30);
+
+                // Formata data_emissao + 30 dias como YYYY-MM-DD para o input de data
+                const yyyy = dt.getFullYear();
+                const mm = String(dt.getMonth() + 1).padStart(2, '0');
+                const dd = String(dt.getDate()).padStart(2, '0');
+                inputVenc.value = `${yyyy}-${mm}-${dd}`;
+            } else {
+                inputVenc.value = '';
+            }
+
+            gridSection.classList.add('d-none');
+            gridBody.innerHTML = '';
+
+            const modal = new bootstrap.Modal(document.getElementById('modalParcelas'));
+            modal.show();
+        }
+    }
+
+    function gerarGrade() {
+        const inputQtd = document.getElementById('qtd_parcelas');
+        const inputVenc = document.getElementById('primeiro_vencimento');
+        const qtd = parseInt(inputQtd.value);
+        const valorTotal = parseFloat(inputQtd.dataset.valorTotal);
+        const dataVencStr = inputVenc.value;
+        const gridSection = document.getElementById('grid_parcelas_section');
+        const gridBody = document.getElementById('grid_parcelas_body');
+
+        if (!qtd || qtd <= 0) {
+            alert("⚠️ Por favor, informe uma quantidade válida de parcelas.");
+            return;
+        }
+        if (!dataVencStr) {
+            alert("⚠️ Por favor, informe a data do 1º Vencimento.");
+            return;
+        }
+
+        gridSection.classList.remove('d-none');
+        gridBody.innerHTML = '';
+
+        // Calcula o valor sugerido arredondado por parcela
+        const valorSugerido = parseFloat((valorTotal / qtd).toFixed(2));
+        let somaValoresSugeridos = 0;
+
+        // Parse da data base de vencimento escolhida
+        const parts = dataVencStr.split('-');
+        const year = parseInt(parts[0]);
+        const month = parseInt(parts[1]) - 1;
+        const day = parseInt(parts[2]);
+
+        for (let i = 1; i <= qtd; i++) {
+            // A última parcela absorve a diferença de centavos do arredondamento
+            let valorParcela;
+            if (i < qtd) {
+                valorParcela = valorSugerido;
+                somaValoresSugeridos += valorSugerido;
+            } else {
+                valorParcela = parseFloat((valorTotal - somaValoresSugeridos).toFixed(2));
+            }
+
+            // Calcula o vencimento adicionando (i - 1) meses a partir da data de vencimento informada
+            const date = new Date(year, month, day);
+            date.setMonth(date.getMonth() + (i - 1));
+
+            const yyyy = date.getFullYear();
+            const mm = String(date.getMonth() + 1).padStart(2, '0');
+            const dd = String(date.getDate()).padStart(2, '0');
+            const dataInputVal = `${yyyy}-${mm}-${dd}`;
+
+            const row = document.createElement('tr');
+            row.classList.add('parcela-row');
+            row.innerHTML = `
+                <td><strong>${i}</strong><input type="hidden" class="row-numero" value="${i}"></td>
+                <td><input type="number" step="0.01" class="form-control form-control-sm text-center row-valor" value="${valorParcela.toFixed(2)}" required style="font-weight: 500;"></td>
+                <td><input type="date" class="form-control form-control-sm text-center row-vencimento" value="${dataInputVal}" required style="font-weight: 500;"></td>
+                <td>
+                    <select class="form-select form-select-sm text-center row-status" style="font-weight: 500;">
+                        <option value="PENDENTE" selected>Pendente</option>
+                        <option value="PAGO">Pago</option>
+                    </select>
+                </td>
+            `;
+            gridBody.appendChild(row);
+        }
+    }
+
+    function limparGrade() {
+        document.getElementById('qtd_parcelas').value = '';
+        document.getElementById('grid_parcelas_section').classList.add('d-none');
+        document.getElementById('grid_parcelas_body').innerHTML = '';
+    }
+
+    async function confirmarParcelamento() {
+        const lancamentoId = document.getElementById('lancamento_id_parcela').value;
+        const inputQtd = document.getElementById('qtd_parcelas');
+        const valorTotal = parseFloat(inputQtd.dataset.valorTotal);
+
+        const rows = document.querySelectorAll('.parcela-row');
+        if (rows.length === 0) {
+            alert("⚠️ Por favor, informe a quantidade de parcelas e clique em 'Gerar Grade' antes de salvar.");
+            return;
+        }
+
+        let soma = 0;
+        const listaParcelas = [];
+
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const num = parseInt(row.querySelector('.row-numero').value);
+            const val = parseFloat(row.querySelector('.row-valor').value);
+            const venc = row.querySelector('.row-vencimento').value;
+            const status = row.querySelector('.row-status').value;
+
+            if (isNaN(val) || val <= 0) {
+                alert(`⚠️ Parcela ${num}: Por favor, informe um valor maior que zero.`);
+                return;
+            }
+            if (!venc) {
+                alert(`⚠️ Parcela ${num}: Por favor, informe uma data de vencimento válida.`);
+                return;
+            }
+
+            soma += val;
+            listaParcelas.push({
+                numero_parcela: num,
+                valor_parcela: val,
+                data_vencimento: venc,
+                situacao: status
+            });
+        }
+
+        const somaCents = Math.round(soma * 100);
+        const totalCents = Math.round(valorTotal * 100);
+
+        if (somaCents !== totalCents) {
+            const valorTotalFormatado = valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+            const somaFormatada = soma.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+            alert(`⚠️ A soma das parcelas deve ser igual ao valor total do registro (${valorTotalFormatado}).\nSoma atual das parcelas no grid: ${somaFormatada}`);
+            return;
+        }
+
+        const payload = {
+            movimento_id: lancamentoId,
+            parcelas: listaParcelas
+        };
+
+        try {
+            const response = await fetch('/financeiro/api/gerar-parcelas/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            const dados = await response.json();
+
+            if (dados.sucesso) {
+                alert("✅ " + dados.mensagem);
+                location.reload();
+            } else {
+                alert("❌ Erro ao gerar: " + dados.mensagem);
+            }
+
+        } catch (erro) {
+            alert("🚨 Erro de comunicação com o servidor.");
         }
     }
 </script>
