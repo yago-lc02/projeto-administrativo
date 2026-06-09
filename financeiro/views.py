@@ -333,6 +333,64 @@ def obter_parcelas_api(request, movimento_id):
 
 
 def incluir_lancamento(request):
+    if request.method == 'POST':
+        # 1. Coleta os dados vindos do formulário HTML
+        descricao = request.POST.get('descricao_produtos')
+        tipo = request.POST.get('tipo')
+        pessoa_id = request.POST.get('pessoa')
+        classificacao_id = request.POST.get('classificacao')
+        numero_nota = request.POST.get('numero_nota')
+        data_emissao = request.POST.get('data_emissao')
+        valor_total = request.POST.get('valor_total')
+
+        try:
+            # Converte a string da data do HTML para um objeto date do Python
+            from datetime import datetime
+            data_emissao_obj = datetime.strptime(data_emissao, '%Y-%m-%d').date()
+
+            # 2. Cria o registro principal do Movimento
+            movimento = MovimentoContas.objects.create(
+                tipo=tipo,
+                numero_nota=numero_nota,
+                data_emissao=data_emissao_obj,
+                valor_total=valor_total,
+                descricao_produtos=descricao,
+                pessoa_id=pessoa_id
+            )
+            
+            # 3. Vincula a classificação (Relacionamento ManyToMany)
+            if classificacao_id:
+                movimento.classificacoes.add(classificacao_id)
+
+            # 4. Cria a primeira parcela padrão vinculada (Regra de consistência)
+            identificador = f"ID-NF-{numero_nota}-P1-{get_random_string(4).upper()}"
+            ParcelaContas.objects.create(
+                movimento=movimento,
+                identificacao_unica=identificador,
+                numero_parcela=1,
+                valor_parcela=valor_total,
+                data_vencimento=timedelta(days=30) + data_emissao_obj, # Vence em 30 dias
+                situacao='ABERTO'
+            )
+
+            messages.success(request, 'Lançamento incluído com sucesso!')
+            return redirect('listar_lancamentos') # Redireciona de volta para a tabela
+
+        except Exception as e:
+            messages.error(request, f'Erro ao salvar o lançamento: {e}')
+    
+    # Se for GET (carregando a página pela primeira vez):
+    # Puxa apenas quem está ativo no sistema para listar nos selects da tela
+    parceiros = Pessoa.objects.filter(status_ativo=True).order_by('nome_razao_social')
+    classificacoes = Classificacao.objects.filter(status_ativo=True).order_by('descricao')
+    
+    context = {
+        'parceiros': parceiros,
+        'classificacoes': classificacoes
+    }
+    return render(request, 'financeiro/incluir_lancamento.html', context)
+
+
 def excluir_lancamento(request):
     if request.method == 'POST':
         movimento_id = request.POST.get('movimento_id')
