@@ -200,7 +200,7 @@ class ConsultaRAGView(APIView):
 # =========================================================================
 # INTERFACE GRÁFICA (TELA DE LANÇAMENTOS) - REGRAS DA ETAPA 4 🎨
 # =========================================================================
-def listar_lancamentos(request):
+def listar_lancamentos(request, *args, **kwargs):
     """
     Controlador responsável por renderizar a tela do primeiro protótipo (CASHFLOW).
     Aplica rigorosamente as regras do PDF do professor.
@@ -242,6 +242,97 @@ from django.contrib import messages
 from django.urls import reverse  # ◄ CORREÇÃO: Importa a ferramenta de rotas dinâmicas
 from .models import MovimentoContas
 
+# =========================================================================
+# GERAÇÃO DE PARCELAS DINÂMICAS ⚙️
+# =========================================================================
+from django.db import transaction
+
+@csrf_exempt
+def gerar_parcelas_api(request):
+    """
+    Recebe um POST via fetch() contendo o ID do movimento e a lista de parcelas geradas/editadas.
+    Salva as parcelas sequenciais no banco.
+    """
+    if request.method == 'POST':
+        try:
+            # 1. Captura e converte os dados que vieram do JavaScript
+            dados = json.loads(request.body)
+            movimento_id = dados.get('movimento_id')
+            parcelas_dados = dados.get('parcelas', [])
+
+            if not movimento_id or not parcelas_dados:
+                return JsonResponse({'sucesso': False, 'mensagem': 'Dados inválidos para parcelamento.'}, status=400)
+
+            # 2. Busca o lançamento original no banco de dados
+            movimento = get_object_or_404(MovimentoContas, id=movimento_id)
+
+            # 3. Criação das parcelas dentro de uma transação atômica
+            with transaction.atomic():
+                # Exclui parcelas antigas vinculadas a este movimento (permite regerar)
+                ParcelaContas.objects.filter(movimento=movimento).delete()
+
+                for p_dado in parcelas_dados:
+                    n_parcela = int(p_dado.get('numero_parcela'))
+                    valor_p = Decimal(str(p_dado.get('valor_parcela')))
+                    venc_p = p_dado.get('data_vencimento')
+                    status_p = p_dado.get('situacao', 'PENDENTE')
+
+                    # Mapeia PENDENTE -> ABERTO para compatibilidade com o banco de dados
+                    situacao_db = 'ABERTO' if status_p == 'PENDENTE' else 'PAGO'
+                    hash_identificador = f"ID-NF-{movimento.id}-P{n_parcela}"
+
+                    # Cria o objeto no banco de dados
+                    ParcelaContas.objects.create(
+                        movimento=movimento,
+                        numero_parcela=n_parcela,
+                        valor_parcela=valor_p,
+                        data_vencimento=venc_p,
+                        situacao=situacao_db,
+                        identificacao_unica=hash_identificador
+                    )
+
+            return JsonResponse({
+                'sucesso': True, 
+                'mensagem': f'{len(parcelas_dados)} parcelas salvas com sucesso!'
+            })
+
+        except Exception as e:
+            return JsonResponse({'sucesso': False, 'mensagem': str(e)}, status=500)
+
+    return JsonResponse({'sucesso': False, 'mensagem': 'Método não permitido.'}, status=405)
+
+
+def obter_parcelas_api(request, movimento_id):
+    """
+    Retorna as parcelas existentes vinculadas a um movimento_id como JSON.
+    """
+    if request.method == 'GET':
+        try:
+            movimento = get_object_or_404(MovimentoContas, id=movimento_id)
+            parcelas = ParcelaContas.objects.filter(movimento=movimento).order_by('numero_parcela')
+            
+            lista_parcelas = []
+            for p in parcelas:
+                # Mapeia ABERTO -> PENDENTE e PAGO -> PAGO para o frontend
+                situacao_fe = 'PENDENTE' if p.situacao == 'ABERTO' else 'PAGO'
+                lista_parcelas.append({
+                    'numero_parcela': p.numero_parcela,
+                    'valor_parcela': float(p.valor_parcela),
+                    'data_vencimento': p.data_vencimento.strftime('%Y-%m-%d'),
+                    'situacao': situacao_fe
+                })
+            
+            return JsonResponse({
+                'sucesso': True,
+                'parcelas': lista_parcelas
+            })
+        except Exception as e:
+            return JsonResponse({'sucesso': False, 'mensagem': str(e)}, status=500)
+            
+    return JsonResponse({'sucesso': False, 'mensagem': 'Método não permitido.'}, status=405)
+
+
+def incluir_lancamento(request):
 def excluir_lancamento(request):
     if request.method == 'POST':
         movimento_id = request.POST.get('movimento_id')
