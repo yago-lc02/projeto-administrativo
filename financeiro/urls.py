@@ -10,6 +10,7 @@ urlpatterns = [
 
     # Rota para API de geração de parcelas ⚙️
     path('api/gerar-parcelas/', views.gerar_parcelas_api, name='gerar_parcelas_api'),
+    path('api/obter-parcelas/<int:movimento_id>/', views.obter_parcelas_api, name='obter_parcelas_api'),
 
     # Rotas Auxiliares que o template precisa reconhecer para os botões funcionarem:
     path('incluir/', views.listar_lancamentos, name='incluir_lancamento'), # Temporário apontando para a listagem

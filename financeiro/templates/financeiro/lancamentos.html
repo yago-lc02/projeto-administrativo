@@ -219,52 +219,94 @@
 
         const id = selecionado.value;
 
-        if (acao === 'alterar') {
-            window.location.href = `/financeiro/alterar/${id}/`;
-        } else if (acao === 'excluir') {
+        if (acao === 'excluir') {
             if (confirm('Deseja realmente inativar este registro do sistema?')) {
                 window.location.href = `/financeiro/excluir/${id}/`;
             }
-        } else if (acao === 'parcelas') {
+        } else if (acao === 'parcelas' || acao === 'alterar') {
             // Preenche o ID oculto, zera os inputs e abre o Modal
             const inputQtd = document.getElementById('qtd_parcelas');
             const inputVenc = document.getElementById('primeiro_vencimento');
             const gridSection = document.getElementById('grid_parcelas_section');
             const gridBody = document.getElementById('grid_parcelas_body');
-
+            
             const valorTotal = parseFloat(selecionado.getAttribute('data-valor-total'));
             const valorFormatado = valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-            const dataEmissao = selecionado.getAttribute('data-data-emissao'); // YYYY-MM-DD
-
+            
             // Popula os campos do topo do modal
             document.getElementById('lancamento_id_parcela').value = id;
             document.getElementById('modal_registro_desc').innerText = selecionado.getAttribute('data-descricao') || 'Sem descrição';
             document.getElementById('modal_registro_valor').innerText = valorFormatado;
-
-            // Configura os inputs
-            inputQtd.value = '';
+            
+            // Configura os inputs base
             inputQtd.dataset.valorTotal = selecionado.getAttribute('data-valor-total');
-
-            // Define o primeiro vencimento padrão estimado: data_emissao + 30 dias
-            if (dataEmissao) {
-                const parts = dataEmissao.split('-');
-                const dt = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-                dt.setDate(dt.getDate() + 30);
-
-                // Formata data_emissao + 30 dias como YYYY-MM-DD para o input de data
-                const yyyy = dt.getFullYear();
-                const mm = String(dt.getMonth() + 1).padStart(2, '0');
-                const dd = String(dt.getDate()).padStart(2, '0');
-                inputVenc.value = `${yyyy}-${mm}-${dd}`;
+            
+            // Define o título do modal dinamicamente de acordo com a ação realizada
+            const modalLabel = document.getElementById('modalParcelasLabel');
+            if (acao === 'alterar') {
+                modalLabel.innerHTML = '✏️ Alterar Parcelas';
             } else {
-                inputVenc.value = '';
+                modalLabel.innerHTML = '⚙️ Gerar Parcelas';
             }
-
+            
+            // Abre o modal de imediato mostrando indicador de carregamento
             gridSection.classList.add('d-none');
             gridBody.innerHTML = '';
-
+            
             const modal = new bootstrap.Modal(document.getElementById('modalParcelas'));
             modal.show();
+
+            // Busca as parcelas já existentes via API
+            fetch(`/financeiro/api/obter-parcelas/${id}/`)
+                .then(response => response.json())
+                .then(dados => {
+                    if (dados.sucesso && dados.parcelas && dados.parcelas.length > 0) {
+                        // Preenche quantidade e 1º vencimento com os dados existentes
+                        inputQtd.value = dados.parcelas.length;
+                        inputVenc.value = dados.parcelas[0].data_vencimento;
+                        
+                        // Exibe a grade preenchida
+                        gridSection.classList.remove('d-none');
+                        gridBody.innerHTML = '';
+                        
+                        dados.parcelas.forEach(p => {
+                            const row = document.createElement('tr');
+                            row.classList.add('parcela-row');
+                            row.innerHTML = `
+                                <td><strong>${p.numero_parcela}</strong><input type="hidden" class="row-numero" value="${p.numero_parcela}"></td>
+                                <td><input type="number" step="0.01" class="form-control form-control-sm text-center row-valor" value="${parseFloat(p.valor_parcela).toFixed(2)}" required style="font-weight: 500;"></td>
+                                <td><input type="date" class="form-control form-control-sm text-center row-vencimento" value="${p.data_vencimento}" required style="font-weight: 500;"></td>
+                                <td>
+                                    <select class="form-select form-select-sm text-center row-status" style="font-weight: 500;">
+                                        <option value="PENDENTE" ${p.situacao === 'PENDENTE' ? 'selected' : ''}>Pendente</option>
+                                        <option value="PAGO" ${p.situacao === 'PAGO' ? 'selected' : ''}>Pago</option>
+                                    </select>
+                                </td>
+                            `;
+                            gridBody.appendChild(row);
+                        });
+                    } else {
+                        // Caso não existam parcelas salvas: aplicar defaults do caso de uso
+                        inputQtd.value = '1'; // Qtd de parcelas default: 1
+                        
+                        // Data corrente (hoje) formatada para o input de data (Data Corrente Válida)
+                        const today = new Date();
+                        const yyyy = today.getFullYear();
+                        const mm = String(today.getMonth() + 1).padStart(2, '0');
+                        const dd = String(today.getDate()).padStart(2, '0');
+                        inputVenc.value = `${yyyy}-${mm}-${dd}`;
+                        
+                        gridSection.classList.add('d-none');
+                        gridBody.innerHTML = '';
+                    }
+                })
+                .catch(erro => {
+                    console.error("Erro ao buscar parcelas:", erro);
+                    // Em caso de erro de rede, aplicar defaults seguros
+                    inputQtd.value = '1';
+                    const today = new Date();
+                    inputVenc.value = today.toISOString().split('T')[0];
+                });
         }
     }
 

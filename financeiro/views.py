@@ -202,7 +202,7 @@ class ConsultaRAGView(APIView):
 # =========================================================================
 # INTERFACE GRÁFICA (TELA DE LANÇAMENTOS) - REGRAS DA ETAPA 4 🎨
 # =========================================================================
-def listar_lancamentos(request):
+def listar_lancamentos(request, *args, **kwargs):
     """
     Controlador responsável por renderizar a tela do primeiro protótipo (CASHFLOW).
     Aplica rigorosamente as regras do PDF do professor.
@@ -297,4 +297,34 @@ def gerar_parcelas_api(request):
         except Exception as e:
             return JsonResponse({'sucesso': False, 'mensagem': str(e)}, status=500)
 
+    return JsonResponse({'sucesso': False, 'mensagem': 'Método não permitido.'}, status=405)
+
+
+def obter_parcelas_api(request, movimento_id):
+    """
+    Retorna as parcelas existentes vinculadas a um movimento_id como JSON.
+    """
+    if request.method == 'GET':
+        try:
+            movimento = get_object_or_404(MovimentoContas, id=movimento_id)
+            parcelas = ParcelaContas.objects.filter(movimento=movimento).order_by('numero_parcela')
+            
+            lista_parcelas = []
+            for p in parcelas:
+                # Mapeia ABERTO -> PENDENTE e PAGO -> PAGO para o frontend
+                situacao_fe = 'PENDENTE' if p.situacao == 'ABERTO' else 'PAGO'
+                lista_parcelas.append({
+                    'numero_parcela': p.numero_parcela,
+                    'valor_parcela': float(p.valor_parcela),
+                    'data_vencimento': p.data_vencimento.strftime('%Y-%m-%d'),
+                    'situacao': situacao_fe
+                })
+            
+            return JsonResponse({
+                'sucesso': True,
+                'parcelas': lista_parcelas
+            })
+        except Exception as e:
+            return JsonResponse({'sucesso': False, 'mensagem': str(e)}, status=500)
+            
     return JsonResponse({'sucesso': False, 'mensagem': 'Método não permitido.'}, status=405)
