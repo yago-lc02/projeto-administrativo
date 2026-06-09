@@ -1,0 +1,79 @@
+{% extends 'financeiro/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card shadow-sm border-0 rounded">
+        <div class="card-header bg-warning text-dark d-flex align-items-center justify-content-between py-3">
+            <h5 class="mb-0 fw-bold">✏️ Alterar Lançamento Financeiro</h5>
+            <span class="badge bg-dark text-white">ID: {{ movimento.id }}</span>
+        </div>
+        
+        <div class="card-body p-4">
+            <form action="{% url 'alterar_lancamento' movimento.id %}" method="POST">
+                {% csrf_token %}
+                
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Tipo de Movimentação</label>
+                        <select name="tipo" class="form-select" required>
+                            <option value="A PAGAR" {% if movimento.tipo == "A PAGAR" %}selected{% endif %}>A PAGAR (Despesa / Débito)</option>
+                            <option value="A RECEBER" {% if movimento.tipo == "A RECEBER" %}selected{% endif %}>A RECEBER (Receita / Crédito)</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Número do Documento / Nota</label>
+                        <input type="text" name="numero_nota" class="form-control" value="{{ movimento.numero_nota }}" required>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Data de Emissão</label>
+                        <input type="date" name="data_emissao" class="form-control" value="{{ movimento.data_emissao|date:'Y-m-d' }}" required>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Parceiro Comercial</label>
+                        <select name="pessoa" class="form-select" required>
+                            {% for p in parceiros %}
+                                <option value="{{ p.id }}" {% if p.id == movimento.pessoa.id %}selected{% endif %}>
+                                    {{ p.nome_razao_social }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Classificação de Conta</label>
+                        <select name="classificacao" class="form-select" required>
+                            {% for c in classificacoes %}
+                                <option value="{{ c.id }}" {% if c.id == classificacao_atual.id %}selected{% endif %}>
+                                    {{ c.descricao }} ({{ c.categoria }})
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Valor Total (R$)</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light">R$</span>
+                            <input type="number" step="0.01" name="valor_total" class="form-control" value="{{ movimento.valor_total|stringformat:'.2f' }}" required>
+                        </div>
+                        <small class="text-muted">A alteração recalculará a 1ª parcela de consistência.</small>
+                    </div>
+
+                    <div class="col-md-8">
+                        <label class="form-label fw-semibold">Descrição Detalhada do Lançamento</label>
+                        <input type="text" name="descricao_produtos" class="form-control" value="{{ movimento.descricao_produtos }}" required>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                    <a href="{% url 'listar_lancamentos' %}?todos=true" class="btn btn-light px-4">Cancelar</a>
+                    <button type="submit" class="btn btn-warning px-4 fw-semibold text-dark">Salvar Alterações</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

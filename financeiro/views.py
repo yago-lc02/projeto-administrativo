@@ -7,9 +7,13 @@ from datetime import timedelta
 from google import genai
 from google.genai import types
 
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from django.urls import reverse  
+from django.contrib import messages
+from django.db import transaction
+from django.utils.crypto import get_random_string
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -17,11 +21,6 @@ from rest_framework import status
 
 from .models import Pessoa, Classificacao, MovimentoContas, ParcelaContas
 from uuid import uuid4
-from django.shortcuts import render, redirect
-from datetime import timedelta
-from django.utils.crypto import get_random_string
-from django.contrib import messages
-
 
 # =========================================================================
 # CLASSE DE INTELIGÊNCIA ARTIFICIAL (RAG) - CONSERVADA E INTOCADA 🚀
@@ -203,50 +202,118 @@ class ConsultaRAGView(APIView):
 def listar_lancamentos(request, *args, **kwargs):
     """
     Controlador responsável por renderizar a tela do primeiro protótipo (CASHFLOW).
-    Aplica rigorosamente as regras do PDF do professor.
+    Aplica rigorosamente as regras do PDF do professor [cite: 454-460].
     """
-    # Sempre carregamos os parceiros ATIVOS para popular o filtro Select
     pessoas = Pessoa.objects.filter(status_ativo=True).order_by('nome_razao_social')
 
-    # Captura os parâmetros de busca do formulário
     descricao = request.GET.get('descricao', '').strip()
     tipo = request.GET.get('tipo', '').strip()
-    pessoa_id = request.GET.get('pessoa', '').strip()
+    person_id = request.GET.get('pessoa', '').strip()
     todos = request.GET.get('todos', '').strip()
 
-    # REGRA DO PROFESSOR: A tabela nasce estritamente vazia
+    # REGRA DO PROFESSOR (Item 3.a): A tabela nasce vazia por padrão [cite: 455]
     movimentos = None
 
-    # Se o usuário acionou o botão "TODOS" ou clicou em "Consultar" com algum filtro preenchido
-    if todos == 'true' or descricao or tipo or pessoa_id:
-        # 🔒 CORREÇÃO DA ETAPA 4: Filtra os movimentos onde status_ativo=True e a pessoa está ativa!
+    # Item 3.b: Carrega dados através da Busca ou botão TODOS [cite: 456]
+    if todos == 'true' or descricao or tipo or person_id:
+        # Item 3.c: Filtra apenas movimentos ativos e de parceiros ativos (Exclusão lógica) [cite: 457]
         movimentos = MovimentoContas.objects.filter(status_ativo=True, pessoa__status_ativo=True).select_related('pessoa').order_by('-data_emissao')
 
-        # Filtros combinados multi-elemento cumulativos
+        # Item 3.e: Filtros multi-elemento cumulativos [cite: 459]
         if descricao:
             movimentos = movimentos.filter(descricao_produtos__icontains=descricao)
         if tipo:
             movimentos = movimentos.filter(tipo=tipo)
-        if pessoa_id:
-            movimentos = movimentos.filter(pessoa_id=pessoa_id)
+        if person_id:
+            movimentos = movimentos.filter(pessoa_id=person_id)
 
     context = {
         'movimentos': movimentos,
         'pessoas': list(pessoas),
     }
-
     return render(request, 'financeiro/lancamentos.html', context)
 
-from django.shortcuts import render, redirect
-from django.contrib import messages
-from django.urls import reverse  # ◄ CORREÇÃO: Importa a ferramenta de rotas dinâmicas
-from .models import MovimentoContas
 
 # =========================================================================
-# GERAÇÃO DE PARCELAS DINÂMICAS ⚙️
+# LÓGICA DE EXCLUSÃO LÓGICA (INATIVAÇÃO) - ETAPA 4 ✔️
 # =========================================================================
-from django.db import transaction
+def excluir_lancamento(request):
+    if request.method == 'POST':
+        movimento_id = request.POST.get('movimento_id')
+        try:
+            movimento = MovimentoContas.objects.get(id=movimento_id)
+            
+            # 🔒 Item 3.i: Altera o campo STATUS para INATIVO [cite: 463-464]
+            movimento.status_ativo = False
+            movimento.save()
 
+            messages.success(request, 'Lançamento inativado com sucesso!')
+        except MovimentoContas.DoesNotExist:
+            messages.error(request, 'Lançamento não encontrado.')
+        except Exception as e:
+            messages.error(request, f'Erro ao inativar: {e}')
+            
+    # Redireciona forçando manter a listagem aberta sem o registro inativado
+    url_destino = f"{reverse('listar_lancamentos')}?todos=true"
+    return redirect(url_destino)
+
+
+# =========================================================================
+# FLUXO DE INCLUSÃO DE LANÇAMENTOS - ETAPA 3 Conservado 📦
+# =========================================================================
+def incluir_lancamento(request):
+    """
+    Controlador responsável por processar o formulário de cadastro de uma nova Nota.
+    """
+    if request.method == 'POST':
+        try:
+            pessoa_id = request.POST.get('pessoa')
+            classificacao_id = request.POST.get('classificacao')
+            
+            pessoa = get_object_or_404(Pessoa, id=pessoa_id)
+            classificacao = get_object_or_404(Classificacao, id=classificacao_id)
+            
+            # Item 3.g: No CREATE o campo status nasce oculto como ATIVO 
+            movimento = MovimentoContas.objects.create(
+                tipo=request.POST.get('tipo'),
+                numero_nota=request.POST.get('numero_nota'),
+                data_emissao=request.POST.get('data_emissao'),
+                valor_total=Decimal(request.POST.get('valor_total')),
+                descricao_produtos=request.POST.get('descricao_produtos'),
+                pessoa=pessoa,
+                status_ativo=True
+            )
+            movimento.classificacoes.add(classificacao)
+            
+            # Gera automaticamente a 1ª parcela de consistência exigida pelo caso de uso
+            hash_identificador = f"ID-NF-{movimento.id}-P1"
+            ParcelaContas.objects.create(
+                movimento=movimento,
+                numero_parcela=1,
+                valor_parcela=movimento.valor_total,
+                data_vencimento=movimento.data_emissao,
+                situacao='ABERTO',
+                identificacao_unica=hash_identificador
+            )
+            
+            messages.success(request, 'Lançamento e parcela de consistência gravados com sucesso!')
+            return redirect(f"{reverse('listar_lancamentos')}?todos=true")
+        except Exception as e:
+            messages.error(request, f'Erro ao cadastrar lançamento: {e}')
+            
+    # Carrega selects da tela de inclusão
+    parceiros = Pessoa.objects.filter(status_ativo=True).order_by('nome_razao_social')
+    classificacoes = Classificacao.objects.all().order_by('descricao')
+    
+    return render(request, 'financeiro/incluir_lancamento.html', {
+        'parceiros': parceiros,
+        'classificacoes': classificacoes
+    })
+
+
+# =========================================================================
+# INTERFACES DE API PARA GERENCIAMENTO DE PARCELAS DINÂMICAS ⚙️
+# =========================================================================
 @csrf_exempt
 def gerar_parcelas_api(request):
     """
@@ -255,7 +322,6 @@ def gerar_parcelas_api(request):
     """
     if request.method == 'POST':
         try:
-            # 1. Captura e converte os dados que vieram do JavaScript
             dados = json.loads(request.body)
             movimento_id = dados.get('movimento_id')
             parcelas_dados = dados.get('parcelas', [])
@@ -263,12 +329,10 @@ def gerar_parcelas_api(request):
             if not movimento_id or not parcelas_dados:
                 return JsonResponse({'sucesso': False, 'mensagem': 'Dados inválidos para parcelamento.'}, status=400)
 
-            # 2. Busca o lançamento original no banco de dados
             movimento = get_object_or_404(MovimentoContas, id=movimento_id)
 
-            # 3. Criação das parcelas dentro de uma transação atômica
             with transaction.atomic():
-                # Exclui parcelas antigas vinculadas a este movimento (permite regerar)
+                # Exclui parcelas antigas vinculadas a este movimento para permitir regerar a grade
                 ParcelaContas.objects.filter(movimento=movimento).delete()
 
                 for p_dado in parcelas_dados:
@@ -277,11 +341,10 @@ def gerar_parcelas_api(request):
                     venc_p = p_dado.get('data_vencimento')
                     status_p = p_dado.get('situacao', 'PENDENTE')
 
-                    # Mapeia PENDENTE -> ABERTO para compatibilidade com o banco de dados
+                    # Mapeia para compatibilidade estrutural com o BD Legado
                     situacao_db = 'ABERTO' if status_p == 'PENDENTE' else 'PAGO'
                     hash_identificador = f"ID-NF-{movimento.id}-P{n_parcela}"
 
-                    # Cria o objeto no banco de dados
                     ParcelaContas.objects.create(
                         movimento=movimento,
                         numero_parcela=n_parcela,
@@ -313,13 +376,12 @@ def obter_parcelas_api(request, movimento_id):
             
             lista_parcelas = []
             for p in parcelas:
-                # Mapeia ABERTO -> PENDENTE e PAGO -> PAGO para o frontend
                 situacao_fe = 'PENDENTE' if p.situacao == 'ABERTO' else 'PAGO'
                 lista_parcelas.append({
                     'numero_parcela': p.numero_parcela,
                     'valor_parcela': float(p.valor_parcela),
                     'data_vencimento': p.data_vencimento.strftime('%Y-%m-%d'),
-                    'situacao': situacao_fe
+                    'situacao': situacao_fe  # ◄ CORREÇÃO: Deixe apenas a variável limpa aqui!
                 })
             
             return JsonResponse({
@@ -332,24 +394,62 @@ def obter_parcelas_api(request, movimento_id):
     return JsonResponse({'sucesso': False, 'mensagem': 'Método não permitido.'}, status=405)
 
 
-def incluir_lancamento(request):
-def excluir_lancamento(request):
-    if request.method == 'POST':
-        movimento_id = request.POST.get('movimento_id')
-        try:
-            movimento = MovimentoContas.objects.get(id=movimento_id)
-            
-            # 🔒 EXCLUSÃO LÓGICA: Inativa o registro
-            movimento.status_ativo = False
-            movimento.save()
+# =========================================================================
+# FLUXO DE ALTERAÇÃO DE LANÇAMENTOS - ETAPA 4 ✔️
+# =========================================================================
+def alterar_lancamento(request, movimento_id):
+    """
+    Controlador responsável por carregar os dados de um lançamento existente
+    e salvar as modificações feitas pelo usuário.
+    """
+    # Busca o movimento pelo ID que veio da URL
+    movimento = get_object_or_404(MovimentoContas, id=movimento_id)
 
-            messages.success(request, 'Lançamento inativado com sucesso!')
-        except MovimentoContas.DoesNotExist:
-            messages.error(request, 'Lançamento não encontrado.')
-        except Exception as e:
-            messages.error(request, f'Erro ao inativar: {e}')
+    if request.method == 'POST':
+        try:
+            pessoa_id = request.POST.get('pessoa')
+            classificacao_id = request.POST.get('classificacao')
             
-    # 🔄 CORREÇÃO DEFECITIVA: Usa o reverse para descobrir a URL correta do seu sistema
-    # e injeta o '?todos=true' no final dela de forma dinâmica!
-    url_destino = f"{reverse('listar_lancamentos')}?todos=true"
-    return redirect(url_destino)
+            pessoa = get_object_or_404(Pessoa, id=pessoa_id)
+            classificacao = get_object_or_404(Classificacao, id=classificacao_id)
+            
+            # Atualiza os campos do registro existente
+            movimento.tipo = request.POST.get('tipo')
+            movimento.numero_nota = request.POST.get('numero_nota')
+            movimento.data_emissao = request.POST.get('data_emissao')
+            movimento.valor_total = Decimal(request.POST.get('valor_total'))
+            movimento.descricao_produtos = request.POST.get('descricao_produtos')
+            movimento.pessoa = p = pessoa
+            movimento.save()
+            
+            # Atualiza a classificação (limpa as antigas e poe a nova)
+            movimento.classificacoes.clear()
+            movimento.classificacoes.add(classificacao)
+            
+            # Regra de consistência: Atualiza também a primeira parcela vinculada para manter o valor igual
+            parcela_p1 = ParcelaContas.objects.filter(movimento=movimento, numero_parcela=1).first()
+            if parcela_p1:
+                parcela_p1.valor_parcela = movimento.valor_total
+                parcela_p1.data_vencimento = movimento.data_emissao
+                parcela_p1.save()
+
+            messages.success(request, 'Lançamento financeiro atualizado com sucesso!')
+            return redirect(f"{reverse('listar_lancamentos')}?todos=true")
+            
+        except Exception as e:
+            messages.error(request, f'Erro ao atualizar lançamento: {e}')
+
+    # Se for GET, carrega a tela com os dados atuais do registro preenchidos
+    parceiros = Pessoa.objects.filter(status_ativo=True).order_by('nome_razao_social')
+    classificacoes = Classificacao.objects.all().order_by('descricao')
+    
+    # Puxa a classificação atual dele para marcar o 'selected' no HTML
+    classificacao_atual = movimento.classificacoes.first()
+
+    return render(request, 'financeiro/alterar_lancamento.html', {
+        'movimento': movimento,
+        'parceiros': parceiros,
+        'peers_lista': parceiros,
+        'classificacoes': classificacoes,
+        'classificacao_atual': classificacao_atual
+    })
