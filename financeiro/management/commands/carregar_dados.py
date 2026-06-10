@@ -1,11 +1,13 @@
 import random
+from decimal import Decimal
 from datetime import date, timedelta
 from django.core.management.base import BaseCommand
 from django.utils.crypto import get_random_string
+from django.db import connection
 from financeiro.models import Pessoa, Classificacao, MovimentoContas, ParcelaContas
 
 class Command(BaseCommand):
-    help = 'Injeta 200 registros realistas divididos entre Receitas e Despesas para o RAG, limpando a base antes.'
+    help = 'Injeta 200 registros realistas e altamente comutados entre Receitas e Despesas para o RAG, limpando a base antes.'
 
     def handle(self, *args, **options):
         # =========================================================================
@@ -17,7 +19,6 @@ class Command(BaseCommand):
         Pessoa.objects.all().delete()
 
         # Executa SQL nativo para forçar o PostgreSQL a zerar os contadores de ID ⚙️
-        from django.db import connection
         with connection.cursor() as cursor:
             self.stdout.write(self.style.WARNING('Resetando contadores de ID (Sequences) para o padrão 1...'))
             cursor.execute("ALTER SEQUENCE financeiro_pessoa_id_seq RESTART WITH 1;")
@@ -25,9 +26,11 @@ class Command(BaseCommand):
             cursor.execute("ALTER SEQUENCE financeiro_parcelacontas_id_seq RESTART WITH 1;")
 
         self.stdout.write(self.style.SUCCESS('Banco de dados e contadores resetados com sucesso!'))
-        self.stdout.write(self.style.WARNING('Iniciando a geração de registros balanceados (Receitas e Despesas)...'))
+        self.stdout.write(self.style.WARNING('Iniciando a geração de registros altamente comutados...'))
 
-        # 1. Categorias do Prompt do seu Agente 1
+        # =========================================================================
+        # PASSO 2: CONFIGURAÇÃO DE CATEGORIAS E PRODUTOS
+        # =========================================================================
         categorias_projeto = [
             {"descricao": "INSUMOS AGRÍCOLAS", "produtos": "Sementes, Fertilizantes, Defensivos Agrícolas", "tipo": "DESPESA"},
             {"descricao": "MANUTENÇÃO E OPERAÇÃO", "produtos": "Combustíveis, Peças, Componentes Mecânicos, Pneus", "tipo": "DESPESA"},
@@ -45,17 +48,16 @@ class Command(BaseCommand):
             )
             obj_classificacoes.append({"obj": obj, "produtos": cat["produtos"].split(", "), "tipo": cat["tipo"]})
 
-        # Entities Reais
-        fornecedores_reais = [
-            {"nome": "RIVEMA MAQUINAS E EQUIPAMENTOS LTDA", "fantasia": "RIVEMA"},
-            {"nome": "COMBUSTIVEIS RIO VERDE LTDA", "fantasia": "POSTO RIO VERDE"},
-            {"nome": "DISTRIBUIDORA DE SEMENTES CERRADO LTDA", "fantasia": "SEMENTES CERRADO"}
-        ]
-
-        clientes_reais = [
-            {"nome": "COMIGO COOPERATIVA AGROINDUSTRIAL", "fantasia": "COMIGO"},
-            {"nome": "CARGILL ALIMENTOS SA", "fantasia": "CARGILL"},
-            {"nome": "LOUIS DREYFUS COMPANY BRASIL", "fantasia": "LDC"}
+        # =========================================================================
+        # PASSO 3: CADASTRO DE PARCEIROS COMUTÁVEIS (Operam Receita e Despesa)
+        # =========================================================================
+        parceiros_misto = [
+            {"nome": "COMIGO COOPERATIVA AGROINDUSTRIAL", "fantasia": "COMIGO", "cnpj": "11.111.111/0001-01"},
+            {"nome": "CARGILL ALIMENTOS SA", "fantasia": "CARGILL", "cnpj": "11.111.111/0001-02"},
+            {"nome": "LOUIS DREYFUS COMPANY BRASIL", "fantasia": "LDC", "cnpj": "11.111.111/0001-03"},
+            {"nome": "RIVEMA MAQUINAS E EQUIPAMENTOS LTDA", "fantasia": "RIVEMA", "cnpj": "00.000.000/0001-01"},
+            {"nome": "COMBUSTIVEIS RIO VERDE LTDA", "fantasia": "POSTO RIO VERDE", "cnpj": "00.000.000/0001-02"},
+            {"nome": "DISTRIBUIDORA DE SEMENTES CERRADO LTDA", "fantasia": "SEMENTES CERRADO", "cnpj": "00.000.000/0001-03"}
         ]
 
         faturados_reais = [
@@ -64,27 +66,14 @@ class Command(BaseCommand):
             {"nome": "YAGO LEMES MANAGEMENT", "cpf_cnpj": "45.123.896/0001-12"}
         ]
 
-        # Cadastrar Fornecedores gerando CNPJ exclusivo incremental para evitar travas unique
-        obj_fornecedores = []
-        for idx_f, f in enumerate(fornecedores_reais):
-            cnpj_forn = f"00.000.000/0001-{idx_f:02d}"
+        obj_parceiros = []
+        for p in parceiros_misto:
             obj, _ = Pessoa.objects.get_or_create(
-                nome_razao_social=f["nome"],
-                defaults={"fantasia": f["fantasia"], "cnpj_cpf": cnpj_forn, "tipo": "FORNECEDOR", "status_ativo": True}
+                nome_razao_social=p["nome"],
+                defaults={"fantasia": p["fantasia"], "cnpj_cpf": p["cnpj"], "tipo": "MISTO", "status_ativo": True}
             )
-            obj_fornecedores.append(obj)
+            obj_parceiros.append(obj)
 
-        # Cadastrar Clientes gerando CNPJ exclusivo incremental
-        obj_clientes = []
-        for idx_c, c in enumerate(clientes_reais):
-            cnpj_clie = f"11.111.111/0001-{idx_c:02d}"
-            obj, _ = Pessoa.objects.get_or_create(
-                nome_razao_social=c["nome"],
-                defaults={"fantasia": c["fantasia"], "cnpj_cpf": cnpj_clie, "tipo": "CLIENTE", "status_ativo": True}
-            )
-            obj_clientes.append(obj)
-
-        # Cadastrar Faturados
         obj_faturados = []
         for fat in faturados_reais:
             obj, _ = Pessoa.objects.get_or_create(
@@ -95,48 +84,54 @@ class Command(BaseCommand):
 
         data_base = date(2026, 1, 1)
         
-        # 3. Gerar os 200 registros de forma balanceada
+        # =========================================================================
+        # PASSO 4: LAÇO DE GERAÇÃO DOS 200 REGISTROS BALANCEADOS
+        # =========================================================================
         for idx in range(200):
-            # Sorteia se este registro será Receita ou Despesa (50% de chance para cada)
+            # 50% de chance para cada natureza de operação
             tipo_movimento = random.choice(["A PAGAR", "A RECEBER"])
             
-            # Filtra as classificações condizentes com o tipo sorteado
-            classif_filtradas = [c for c in obj_classificacoes if c["tipo"] == ("RECEITA" if tipo_movimento == "A RECEBER" else "DESPESA")]
+            # Filtra a classificação condizente com a natureza
+            tipo_filtro = "RECEITA" if tipo_movimento == "A RECEBER" else "DESPESA"
+            classif_filtradas = [c for c in obj_classificacoes if c["tipo"] == tipo_filtro]
             classif_escolhida = random.choice(classif_filtradas)
             produto_sorteado = random.choice(classif_escolhida["produtos"])
             
+            # Escolha aleatória de parceiros e faturados (Gerando a comutação total!)
+            parceiro = random.choice(obj_parceiros)
             faturado = random.choice(obj_faturados)
             
+            # Construção de descrições ricas contendo Tipo, Produto e Envolvidos para busca textual
             if tipo_movimento == "A PAGAR":
-                parceiro = random.choice(obj_fornecedores)
-                texto_desc = f"Compra de {produto_sorteado} para uso na unidade produtora. Faturado para {faturado.nome_razao_social}."
+                texto_desc = f"Despesa operacional: Compra de {produto_sorteado} junto ao parceiro {parceiro.nome_razao_social}. Documento faturado para {faturado.nome_razao_social}."
             else:
-                parceiro = random.choice(obj_clientes)
-                texto_desc = f"Venda de {produto_sorteado} produzido na fazenda. Recebido de {parceiro.nome_razao_social} faturado em {faturado.nome_razao_social}."
+                texto_desc = f"Receita de produção: Venda comercial de {produto_sorteado} entregue para {parceiro.nome_razao_social}. Liquidação faturada em favor de {faturado.nome_razao_social}."
 
             num_nota = f"000.{random.randint(100,999)}.{idx+1:03d}"
-            dt_emissao = data_base + timedelta(days=random.randint(0, 120))
-            val_total = round(random.uniform(3500.00, 120000.00), 2)
+            dt_emissao = data_base + timedelta(days=random.randint(0, 150))
+            val_total = round(random.uniform(1500.00, 145000.00), 2)
 
+            # Persistência do Movimento com status_ativo=True (Regra da Etapa 4)
             movimento = MovimentoContas.objects.create(
                 tipo=tipo_movimento,
                 numero_nota=num_nota,
                 data_emissao=dt_emissao,
-                valor_total=val_total,
+                valor_total=Decimal(str(val_total)),
                 descricao_produtos=texto_desc,
-                pessoa=parceiro
+                pessoa=parceiro,
+                status_ativo=True  # ◄ GARANTE A EXCLUSÃO LÓGICA ATIVA POR PADRÃO
             )
             movimento.classificacoes.add(classif_escolhida["obj"])
 
-            # Parcela
+            # Geração da Parcela de Consistência P1 obrigatória
             identificador = f"ID-NF-{num_nota}-P1-{get_random_string(4).upper()}"
             ParcelaContas.objects.create(
                 movimento=movimento,
                 identificacao_unica=identificador,
                 numero_parcela=1,
-                valor_parcela=val_total,
+                valor_parcela=Decimal(str(val_total)),
                 data_vencimento=dt_emissao + timedelta(days=30),
                 situacao=random.choice(["ABERTO", "QUITADO"])
             )
 
-        self.stdout.write(self.style.SUCCESS('Sucesso! 200 movimentos (Receitas e Despesas) gerados com perfeito equilíbrio para o RAG.'))
+        self.stdout.write(self.style.SUCCESS('200 registros gerados com sucesso!'))

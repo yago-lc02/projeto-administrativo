@@ -1,0 +1,88 @@
+{% extends 'financeiro/base.html' %}
+{% load l10n %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card shadow-sm border-0 rounded">
+        <div class="card-header bg-danger text-white d-flex align-items-center justify-content-between py-3">
+            <h5 class="mb-0 fw-bold">🗑️ Confirmar Inativação (Exclusão Lógica)</h5>
+            <span class="badge bg-dark text-white">ID: {{ movimento.id }}</span>
+        </div>
+        
+        <div class="card-body p-4">
+            <div class="alert alert-warning border-0 shadow-sm mb-4">
+                <h5 class="alert-heading fw-bold">⚠️ Atenção!</h5>
+                <p class="mb-0">Deseja realmente efetuar a <strong>EXCLUSÃO LÓGICA (Inativar)</strong> deste lançamento financeiro no sistema?</p>
+            </div>
+
+            <h5 class="text-secondary border-bottom pb-2 mb-3 fw-bold" style="border-bottom-style: dashed !important; border-bottom-width: 2px !important;">Detalhes do Lançamento</h5>
+            
+            <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold text-muted">Tipo de Movimentação</label>
+                    <div class="form-control-plaintext fw-bold">
+                        {% if movimento.tipo == 'A RECEBER' %}
+                        <span class="badge badge-receita px-3 py-2 rounded-pill">Receita (A Receber)</span>
+                        {% else %}
+                        <span class="badge badge-despesa px-3 py-2 rounded-pill">Despesa (A Pagar)</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold text-muted">Número do Documento / Nota</label>
+                    <div class="form-control-plaintext fw-bold">{{ movimento.numero_nota }}</div>
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold text-muted">Data de Emissão</label>
+                    <div class="form-control-plaintext fw-bold">{{ movimento.data_emissao|date:"d/m/Y" }}</div>
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold text-muted">Parceiro Comercial</label>
+                    <div class="form-control-plaintext fw-bold">{{ movimento.pessoa.nome_razao_social }}</div>
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold text-muted">Classificação de Conta</label>
+                    <div class="form-control-plaintext fw-bold">
+                        {% for c in movimento.classificacoes.all %}
+                        {{ c.descricao }} ({{ c.categoria }})
+                        {% empty %}
+                        Sem classificação
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold text-muted">Valor Total</label>
+                    <div class="form-control-plaintext fw-bold text-danger fs-5">R$ {{ movimento.valor_total|localize }}</div>
+                </div>
+
+                <div class="col-md-8">
+                    <label class="form-label fw-semibold text-muted">Descrição</label>
+                    <div class="form-control-plaintext fw-bold">{{ movimento.descricao_produtos }}</div>
+                </div>
+            </div>
+
+            <form action="{% url 'excluir_lancamento' movimento.id %}" method="POST">
+                {% csrf_token %}
+                <div class="d-flex justify-content-end gap-2 pt-3 border-top">
+                    <a href="{% url 'listar_lancamentos' %}?todos=true" id="btn-cancelar" class="btn btn-light px-4">Cancelar</a>
+                    <button type="submit" class="btn btn-danger px-4 fw-semibold text-white">Sim, Inativar Registro</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const referer = document.referrer;
+        if (referer && referer.includes('/financeiro/lancamentos/')) {
+            document.getElementById('btn-cancelar').href = referer;
+        }
+    });
+</script>
+{% endblock %}

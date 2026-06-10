@@ -22,6 +22,12 @@ from rest_framework import status
 from .models import Pessoa, Classificacao, MovimentoContas, ParcelaContas
 from uuid import uuid4
 
+def limpar_valor_monetario(valor_str):
+    if not valor_str:
+        return Decimal('0.00')
+    valor_limpo = valor_str.replace('.', '').replace(',', '.')
+    return Decimal(valor_limpo)
+
 # =========================================================================
 # CLASSE DE INTELIGÊNCIA ARTIFICIAL (RAG) - CONSERVADA E INTOCADA 🚀
 # =========================================================================
@@ -197,12 +203,11 @@ class ConsultaRAGView(APIView):
 
 
 # =========================================================================
-# INTERFACE GRÁFICA (TELA DE LANÇAMENTOS) - REGRAS DA ETAPA 4 🎨
+# INTERFACE GRÁFICA (TELA DE LANÇAMENTOS) - REGRAS DA ETAPA 4
 # =========================================================================
 def listar_lancamentos(request, *args, **kwargs):
     """
     Controlador responsável por renderizar a tela do primeiro protótipo (CASHFLOW).
-    Aplica rigorosamente as regras do PDF do professor [cite: 454-460].
     """
     pessoas = Pessoa.objects.filter(status_ativo=True).order_by('nome_razao_social')
 
@@ -211,15 +216,15 @@ def listar_lancamentos(request, *args, **kwargs):
     person_id = request.GET.get('pessoa', '').strip()
     todos = request.GET.get('todos', '').strip()
 
-    # REGRA DO PROFESSOR (Item 3.a): A tabela nasce vazia por padrão [cite: 455]
+    # REGRA DO PROFESSOR (Item 3.a): A tabela nasce vazia por padrão
     movimentos = None
 
-    # Item 3.b: Carrega dados através da Busca ou botão TODOS [cite: 456]
+    # Item 3.b: Carrega dados através da Busca ou botão TODOS
     if todos == 'true' or descricao or tipo or person_id:
-        # Item 3.c: Filtra apenas movimentos ativos e de parceiros ativos (Exclusão lógica) [cite: 457]
+        # Item 3.c: Filtra apenas movimentos ativos e de parceiros ativos (Exclusão lógica)
         movimentos = MovimentoContas.objects.filter(status_ativo=True, pessoa__status_ativo=True).select_related('pessoa').order_by('-data_emissao')
 
-        # Item 3.e: Filtros multi-elemento cumulativos [cite: 459]
+        # Item 3.e: Filtros multi-elemento cumulativos
         if descricao:
             movimentos = movimentos.filter(descricao_produtos__icontains=descricao)
         if tipo:
@@ -235,31 +240,7 @@ def listar_lancamentos(request, *args, **kwargs):
 
 
 # =========================================================================
-# LÓGICA DE EXCLUSÃO LÓGICA (INATIVAÇÃO) - ETAPA 4 ✔️
-# =========================================================================
-def excluir_lancamento(request):
-    if request.method == 'POST':
-        movimento_id = request.POST.get('movimento_id')
-        try:
-            movimento = MovimentoContas.objects.get(id=movimento_id)
-            
-            # 🔒 Item 3.i: Altera o campo STATUS para INATIVO [cite: 463-464]
-            movimento.status_ativo = False
-            movimento.save()
-
-            messages.success(request, 'Lançamento inativado com sucesso!')
-        except MovimentoContas.DoesNotExist:
-            messages.error(request, 'Lançamento não encontrado.')
-        except Exception as e:
-            messages.error(request, f'Erro ao inativar: {e}')
-            
-    # Redireciona forçando manter a listagem aberta sem o registro inativado
-    url_destino = f"{reverse('listar_lancamentos')}?todos=true"
-    return redirect(url_destino)
-
-
-# =========================================================================
-# FLUXO DE INCLUSÃO DE LANÇAMENTOS - ETAPA 3 Conservado 📦
+# FLUXO DE INCLUSÃO DE LANÇAMENTOS - ETAPA 3
 # =========================================================================
 def incluir_lancamento(request):
     """
@@ -278,7 +259,7 @@ def incluir_lancamento(request):
                 tipo=request.POST.get('tipo'),
                 numero_nota=request.POST.get('numero_nota'),
                 data_emissao=request.POST.get('data_emissao'),
-                valor_total=Decimal(request.POST.get('valor_total')),
+                valor_total=limpar_valor_monetario(request.POST.get('valor_total')),
                 descricao_produtos=request.POST.get('descricao_produtos'),
                 pessoa=pessoa,
                 status_ativo=True
@@ -312,7 +293,7 @@ def incluir_lancamento(request):
 
 
 # =========================================================================
-# INTERFACES DE API PARA GERENCIAMENTO DE PARCELAS DINÂMICAS ⚙️
+# INTERFACES DE API PARA GERENCIAMENTO DE PARCELAS DINÂMICAS
 # =========================================================================
 @csrf_exempt
 def gerar_parcelas_api(request):
@@ -345,6 +326,33 @@ def gerar_parcelas_api(request):
                     situacao_db = 'ABERTO' if status_p == 'PENDENTE' else 'PAGO'
                     hash_identificador = f"ID-NF-{movimento.id}-P{n_parcela}"
 
+                    # Regra de negócio: Vencimento da parcela não pode ser anterior à data de emissão do lançamento
+                    from datetime import date, datetime
+                    
+                    if isinstance(venc_p, str):
+                        if '-' in venc_p:
+                            venc_date = datetime.strptime(venc_p.split()[0], '%Y-%m-%d').date()
+                        elif '/' in venc_p:
+                            venc_date = datetime.strptime(venc_p.split()[0], '%d/%m/%Y').date()
+                        else:
+                            raise ValueError(f"Formato de data inválido para a parcela {n_parcela}: {venc_p}")
+                    elif isinstance(venc_p, datetime):
+                        venc_date = venc_p.date()
+                    else:
+                        venc_date = venc_p
+                        
+                    emissao_date = movimento.data_emissao
+                    if isinstance(emissao_date, str):
+                        if '-' in emissao_date:
+                            emissao_date = datetime.strptime(emissao_date.split()[0], '%Y-%m-%d').date()
+                        elif '/' in emissao_date:
+                            emissao_date = datetime.strptime(emissao_date.split()[0], '%d/%m/%Y').date()
+                    elif isinstance(emissao_date, datetime):
+                        emissao_date = emissao_date.date()
+                        
+                    if venc_date < emissao_date:
+                        raise ValueError(f"A data de vencimento da parcela {n_parcela} ({venc_date.strftime('%d/%m/%Y')}) não pode ser menor que a data de emissão do lançamento ({emissao_date.strftime('%d/%m/%Y')}).")
+
                     ParcelaContas.objects.create(
                         movimento=movimento,
                         numero_parcela=n_parcela,
@@ -354,12 +362,14 @@ def gerar_parcelas_api(request):
                         identificacao_unica=hash_identificador
                     )
 
+            messages.success(request, f'{len(parcelas_dados)} parcelas salvas com sucesso!')
             return JsonResponse({
                 'sucesso': True, 
                 'mensagem': f'{len(parcelas_dados)} parcelas salvas com sucesso!'
             })
 
         except Exception as e:
+            messages.error(request, f'Erro ao salvar parcelas: {str(e)}')
             return JsonResponse({'sucesso': False, 'mensagem': str(e)}, status=500)
 
     return JsonResponse({'sucesso': False, 'mensagem': 'Método não permitido.'}, status=405)
@@ -395,7 +405,7 @@ def obter_parcelas_api(request, movimento_id):
 
 
 # =========================================================================
-# FLUXO DE ALTERAÇÃO DE LANÇAMENTOS - ETAPA 4 ✔️
+# FLUXO DE ALTERAÇÃO DE LANÇAMENTOS - ETAPA 4
 # =========================================================================
 def alterar_lancamento(request, movimento_id):
     """
@@ -417,7 +427,7 @@ def alterar_lancamento(request, movimento_id):
             movimento.tipo = request.POST.get('tipo')
             movimento.numero_nota = request.POST.get('numero_nota')
             movimento.data_emissao = request.POST.get('data_emissao')
-            movimento.valor_total = Decimal(request.POST.get('valor_total'))
+            movimento.valor_total = limpar_valor_monetario(request.POST.get('valor_total'))
             movimento.descricao_produtos = request.POST.get('descricao_produtos')
             movimento.pessoa = p = pessoa
             movimento.save()
@@ -453,3 +463,25 @@ def alterar_lancamento(request, movimento_id):
         'classificacoes': classificacoes,
         'classificacao_atual': classificacao_atual
     })
+
+
+# =========================================================================
+# LÓGICA DE EXCLUSÃO LÓGICA (INATIVAÇÃO) - ETAPA 4
+# =========================================================================
+def excluir_lancamento(request, movimento_id):
+    movimento = get_object_or_404(MovimentoContas, id=movimento_id)
+    
+    if request.method == 'POST':
+        try:
+            # Item 3.i: Altera o campo STATUS para INATIVO
+            movimento.status_ativo = False
+            movimento.save()
+
+            messages.success(request, 'Lançamento inativado com sucesso!')
+        except Exception as e:
+            messages.error(request, f'Erro ao inativar: {e}')
+            
+        url_destino = f"{reverse('listar_lancamentos')}?todos=true"
+        return redirect(url_destino)
+        
+    return render(request, 'financeiro/excluir_lancamento.html', {'movimento': movimento})

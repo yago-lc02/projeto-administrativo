@@ -3,6 +3,7 @@
 {% block content %}
 {% load l10n %}
 
+<div id="js-messages-container" class="mb-3"></div>
 
 <div class="card-custom">
     <h5 class="card-title-custom">Lançamentos Financeiros</h5>
@@ -43,10 +44,7 @@
             <button onclick="executarAcao('incluir')" class="btn btn-sm btn-outline-success px-3 fw-bold">＋ Incluir</button>
             <button onclick="executarAcao('alterar')" class="btn btn-sm btn-outline-primary px-3 fw-bold">✏️ Alterar</button>
             <button onclick="executarAcao('excluir')" class="btn btn-sm btn-outline-danger px-3 fw-bold">🗑️ Excluir</button>
-            <form id="form-excluir" method="POST" action="{% url 'excluir_lancamento' %}" style="display: none;">
-                {% csrf_token %}
-                <input type="hidden" name="movimento_id" id="excluir-movimento-id">
-            </form>
+
         </div>
         <div>
             <button onclick="executarAcao('parcelas')" class="btn btn-sm btn-outline-warning px-4 fw-bold shadow-sm">⚙️
@@ -58,13 +56,13 @@
         <table class="table table-bordered table-hover align-middle mb-0" style="min-width: 900px;">
             <thead class="table-success">
                 <tr class="text-center align-middle">
-                    <th style="width: 5%;">#</th>
-                    <th style="width: 10%;">Código</th>
-                    <th style="width: 30%;">Descrição</th> 
-                    <th style="width: 20%;">Parceiro</th>
-                    <th style="width: 10%;">Tipo</th>
-                    <th style="width: 10%;">Data Emissão</th>
-                    <th style="width: 20%;">Valor Total</th> 
+                    <th style="width: 5%; user-select: none;">#</th>
+                    <th style="width: 10%; cursor: pointer; user-select: none;" onclick="ordenarTabela(1, 'num')">Código <span class="sort-icon"></span></th>
+                    <th style="width: 30%; cursor: pointer; user-select: none;" onclick="ordenarTabela(2, 'text')">Descrição <span class="sort-icon"></span></th> 
+                    <th style="width: 20%; cursor: pointer; user-select: none;" onclick="ordenarTabela(3, 'text')">Parceiro <span class="sort-icon"></span></th>
+                    <th style="width: 10%; cursor: pointer; user-select: none;" onclick="ordenarTabela(4, 'text')">Tipo <span class="sort-icon"></span></th>
+                    <th style="width: 10%; cursor: pointer; user-select: none;" onclick="ordenarTabela(5, 'date')">Data Emissão <span class="sort-icon"></span></th>
+                    <th style="width: 20%; cursor: pointer; user-select: none;" onclick="ordenarTabela(6, 'num')">Valor Total <span class="sort-icon"></span></th> 
                 </tr>
             </thead>
             <tbody>
@@ -81,18 +79,18 @@
                             data-descricao="{{ mov.descricao_produtos }}"
                             data-data-emissao="{{ mov.data_emissao|date:'Y-m-d' }}">
                     </td>
-                    <td class="text-center">{{ mov.id|stringformat:"03d" }}</td>
+                    <td class="text-center" data-order="{{ mov.id }}">{{ mov.id|stringformat:"03d" }}</td>
                     <td title="{{ mov.descricao_produtos }}">{{ mov.descricao_produtos|truncatechars:150 }}</td>
                     <td>{{ mov.pessoa.nome_razao_social }}</td>
-                    <td class="text-center">
+                    <td class="text-center" data-order="{{ mov.tipo }}">
                         {% if mov.tipo == 'A RECEBER' %}
                         <span class="badge badge-receita px-3 py-2 rounded-pill">Receita</span>
                         {% else %}
                         <span class="badge badge-despesa px-3 py-2 rounded-pill">Despesa</span>
                         {% endif %}
                     </td>
-                    <td class="text-center">{{ mov.data_emissao|date:"d/m/Y" }}</td>
-                    <td class="text-end pe-3" style="white-space: nowrap;">R$ {{ mov.valor_total|localize }}</td>
+                    <td class="text-center" data-order="{{ mov.data_emissao|date:'Y-m-d' }}">{{ mov.data_emissao|date:"d/m/Y" }}</td>
+                    <td class="text-end pe-3" data-order="{{ mov.valor_total|unlocalize }}" style="white-space: nowrap;">R$ {{ mov.valor_total|localize }}</td>
                 </tr>
                 {% endfor %}
                 {% else %}
@@ -120,6 +118,7 @@
                     aria-label="Close"></button>
             </div>
             <div class="modal-body">
+                <div id="js-modal-messages-container" class="mb-3"></div>
                 <!-- Título da seção interna -->
                 <h5 class="text-success border-bottom border-success pb-2 mb-3 fw-bold"
                     style="border-bottom-style: dashed !important; border-bottom-width: 2px !important;">Detalhamento de
@@ -203,6 +202,103 @@
 </div>
 
 <script>
+    function formatarMoeda(valorStrOrNum) {
+        if (valorStrOrNum === null || valorStrOrNum === undefined) return "";
+        let valStr = typeof valorStrOrNum === 'number' ? valorStrOrNum.toFixed(2) : String(valorStrOrNum);
+        let valor = valStr.replace(/\D/g, "");
+        if (!valor) return "";
+        let valorDecimal = (parseInt(valor) / 100).toFixed(2);
+        let partes = valorDecimal.split(".");
+        partes[0] = partes[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+        return partes.join(",");
+    }
+
+    function limparMoeda(valorStr) {
+        if (!valorStr) return 0;
+        let limpo = valorStr.replace(/\./g, "").replace(",", ".");
+        return parseFloat(limpo) || 0;
+    }
+
+    function parsearData(dataStr) {
+        if (!dataStr) return null;
+        let partes;
+        if (dataStr.includes('-')) {
+            partes = dataStr.split('-');
+            return new Date(parseInt(partes[0]), parseInt(partes[1]) - 1, parseInt(partes[2]));
+        } else if (dataStr.includes('/')) {
+            partes = dataStr.split('/');
+            return new Date(parseInt(partes[2]), parseInt(partes[1]) - 1, parseInt(partes[0]));
+        }
+        return null;
+    }
+
+    function exibirMensagemFeedback(mensagem, tipo, noModal = false) {
+        let container;
+        if (noModal) {
+            container = document.getElementById('js-modal-messages-container');
+        } else {
+            container = document.getElementById('js-messages-container');
+        }
+        
+        if (!container) return;
+        container.innerHTML = '';
+
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${tipo} alert-dismissible fade show shadow-sm`;
+        alertDiv.setAttribute('role', 'alert');
+        alertDiv.innerHTML = `
+            ${mensagem}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        container.appendChild(alertDiv);
+        
+        if (!noModal) {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", function() {
+        const gridBody = document.getElementById('grid_parcelas_body');
+        if (gridBody) {
+            gridBody.addEventListener('input', function(e) {
+                if (e.target && e.target.classList.contains('row-valor')) {
+                    e.target.value = formatarMoeda(e.target.value);
+                }
+                // Sincroniza a data da parcela 1 no grid com o campo "1º Vencimento" no topo
+                if (e.target && e.target.classList.contains('row-vencimento')) {
+                    const row = e.target.closest('.parcela-row');
+                    if (row) {
+                        const num = parseInt(row.querySelector('.row-numero').value);
+                        if (num === 1) {
+                            const inputVenc = document.getElementById('primeiro_vencimento');
+                            if (inputVenc) {
+                                inputVenc.value = e.target.value;
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Sincroniza o campo "1º Vencimento" no topo com a data da parcela 1 no grid
+        const inputVenc = document.getElementById('primeiro_vencimento');
+        if (inputVenc) {
+            inputVenc.addEventListener('input', function() {
+                const rows = document.querySelectorAll('.parcela-row');
+                if (rows.length > 0) {
+                    const row1 = rows[0];
+                    const num = parseInt(row1.querySelector('.row-numero').value);
+                    if (num === 1) {
+                        const inputVenc1 = row1.querySelector('.row-vencimento');
+                        if (inputVenc1) {
+                            inputVenc1.value = inputVenc.value;
+                        }
+                    }
+                }
+            });
+        }
+    });
+
     // Função unificada para todos os botões da tela
     function executarAcao(acao) {
         // Se for incluir, não precisa ter linha selecionada
@@ -215,7 +311,7 @@
         const selecionado = document.querySelector('input[name="linha_selecionada"]:checked');
 
         if (!selecionado) {
-            alert('⚠️ Por favor, selecione um lançamento na tabela usando o botão circular da lateral esquerda.');
+            exibirMensagemFeedback('⚠️ Por favor, selecione um lançamento na tabela usando o botão circular da lateral esquerda.', 'warning');
             return;
         }
 
@@ -224,12 +320,7 @@
         if (acao === 'alterar') {
             window.location.href = `/financeiro/alterar/${id}/`;
         } else if (acao === 'excluir') {
-            // 🟢 Mensagem atualizada com os termos exatos do PDF do professor:
-            if (confirm('Deseja realmente efetuar a EXCLUSÃO LÓGICA (Inativar) deste lançamento financeiro?')) {
-                // Injeta o ID no formulário invisível e dispara o POST pro Django
-                document.getElementById('excluir-movimento-id').value = id;
-                document.getElementById('form-excluir').submit();
-            }
+            window.location.href = `/financeiro/lancamentos/excluir/${id}/`;
         } else if (acao === 'parcelas') {
             // Preenche o ID oculto, zera os inputs e abre o Modal
             const inputQtd = document.getElementById('qtd_parcelas');
@@ -247,6 +338,7 @@
             
             // Configura os inputs base
             inputQtd.dataset.valorTotal = selecionado.getAttribute('data-valor-total');
+            inputVenc.dataset.dataEmissao = selecionado.getAttribute('data-data-emissao');
             
             // Define o título do modal dinamicamente de acordo com a ação realizada
             const modalLabel = document.getElementById('modalParcelasLabel');
@@ -281,7 +373,7 @@
                             row.classList.add('parcela-row');
                             row.innerHTML = `
                                 <td><strong>${p.numero_parcela}</strong><input type="hidden" class="row-numero" value="${p.numero_parcela}"></td>
-                                <td><input type="number" step="0.01" class="form-control form-control-sm text-center row-valor" value="${parseFloat(p.valor_parcela).toFixed(2)}" required style="font-weight: 500;"></td>
+                                <td><input type="text" class="form-control form-control-sm text-center row-valor" value="${formatarMoeda(p.valor_parcela)}" required style="font-weight: 500;"></td>
                                 <td><input type="date" class="form-control form-control-sm text-center row-vencimento" value="${p.data_vencimento}" required style="font-weight: 500;"></td>
                                 <td>
                                     <select class="form-select form-select-sm text-center row-status" style="font-weight: 500;">
@@ -318,6 +410,9 @@
     }
 
     function gerarGrade() {
+        const selecionado = document.querySelector('input[name="linha_selecionada"]:checked');
+        const dataEmissaoStr = selecionado ? selecionado.getAttribute('data-data-emissao') : null;
+        
         const inputQtd = document.getElementById('qtd_parcelas');
         const inputVenc = document.getElementById('primeiro_vencimento');
         const qtd = parseInt(inputQtd.value);
@@ -327,16 +422,35 @@
         const gridBody = document.getElementById('grid_parcelas_body');
 
         if (!qtd || qtd <= 0) {
-            alert("⚠️ Por favor, informe uma quantidade válida de parcelas.");
+            exibirMensagemFeedback("⚠️ Por favor, informe uma quantidade válida de parcelas.", "warning", true);
             return;
         }
         if (!dataVencStr) {
-            alert("⚠️ Por favor, informe a data do 1º Vencimento.");
+            exibirMensagemFeedback("⚠️ Por favor, informe a data do 1º Vencimento.", "warning", true);
             return;
+        }
+
+        // Validação da data de vencimento em relação à data de emissão do registro
+        if (dataEmissaoStr) {
+            const dataEmissao = parsearData(dataEmissaoStr);
+            const dataPrimeiro = parsearData(dataVencStr);
+
+            if (dataEmissao && dataPrimeiro) {
+                dataEmissao.setHours(0, 0, 0, 0);
+                dataPrimeiro.setHours(0, 0, 0, 0);
+
+                if (dataPrimeiro < dataEmissao) {
+                    const dataEmissaoFormatada = dataEmissao.toLocaleDateString('pt-BR');
+                    exibirMensagemFeedback(`⚠️ A data do 1º Vencimento não pode ser menor que a data de emissão do lançamento (${dataEmissaoFormatada}).`, "warning", true);
+                    return;
+                }
+            }
         }
 
         gridSection.classList.remove('d-none');
         gridBody.innerHTML = '';
+        const mContainer = document.getElementById('js-modal-messages-container');
+        if (mContainer) mContainer.innerHTML = '';
 
         // Calcula o valor sugerido arredondado por parcela
         const valorSugerido = parseFloat((valorTotal / qtd).toFixed(2));
@@ -371,7 +485,7 @@
             row.classList.add('parcela-row');
             row.innerHTML = `
                 <td><strong>${i}</strong><input type="hidden" class="row-numero" value="${i}"></td>
-                <td><input type="number" step="0.01" class="form-control form-control-sm text-center row-valor" value="${valorParcela.toFixed(2)}" required style="font-weight: 500;"></td>
+                <td><input type="text" class="form-control form-control-sm text-center row-valor" value="${formatarMoeda(valorParcela)}" required style="font-weight: 500;"></td>
                 <td><input type="date" class="form-control form-control-sm text-center row-vencimento" value="${dataInputVal}" required style="font-weight: 500;"></td>
                 <td>
                     <select class="form-select form-select-sm text-center row-status" style="font-weight: 500;">
@@ -391,13 +505,16 @@
     }
 
     async function confirmarParcelamento() {
+        const selecionado = document.querySelector('input[name="linha_selecionada"]:checked');
+        const dataEmissaoStr = selecionado ? selecionado.getAttribute('data-data-emissao') : null;
+        
         const lancamentoId = document.getElementById('lancamento_id_parcela').value;
         const inputQtd = document.getElementById('qtd_parcelas');
         const valorTotal = parseFloat(inputQtd.dataset.valorTotal);
 
         const rows = document.querySelectorAll('.parcela-row');
         if (rows.length === 0) {
-            alert("⚠️ Por favor, informe a quantidade de parcelas e clique em 'Gerar Grade' antes de salvar.");
+            exibirMensagemFeedback("⚠️ Por favor, informe a quantidade de parcelas e clique em 'Gerar Grade' antes de salvar.", "warning", true);
             return;
         }
 
@@ -407,17 +524,35 @@
         for (let i = 0; i < rows.length; i++) {
             const row = rows[i];
             const num = parseInt(row.querySelector('.row-numero').value);
-            const val = parseFloat(row.querySelector('.row-valor').value);
+            const val = limparMoeda(row.querySelector('.row-valor').value);
             const venc = row.querySelector('.row-vencimento').value;
             const status = row.querySelector('.row-status').value;
 
             if (isNaN(val) || val <= 0) {
-                alert(`⚠️ Parcela ${num}: Por favor, informe um valor maior que zero.`);
+                exibirMensagemFeedback(`⚠️ Parcela ${num}: Por favor, informe um valor maior que zero.`, "warning", true);
                 return;
             }
             if (!venc) {
-                alert(`⚠️ Parcela ${num}: Por favor, informe uma data de vencimento válida.`);
+                exibirMensagemFeedback(`⚠️ Parcela ${num}: Por favor, informe uma data de vencimento válida.`, "warning", true);
                 return;
+            }
+
+            // Validação da data de vencimento em relação à data de emissão do registro
+            if (dataEmissaoStr) {
+                const dataEmissao = parsearData(dataEmissaoStr);
+                const dataVenc = parsearData(venc);
+
+                if (dataEmissao && dataVenc) {
+                    dataEmissao.setHours(0, 0, 0, 0);
+                    dataVenc.setHours(0, 0, 0, 0);
+
+                    if (dataVenc < dataEmissao) {
+                        const dataFormatada = dataVenc.toLocaleDateString('pt-BR');
+                        const dataEmissaoFormatada = dataEmissao.toLocaleDateString('pt-BR');
+                        exibirMensagemFeedback(`⚠️ Parcela ${num}: A data de vencimento (${dataFormatada}) não pode ser menor que a data de emissão do lançamento (${dataEmissaoFormatada}).`, "warning", true);
+                        return;
+                    }
+                }
             }
 
             soma += val;
@@ -435,7 +570,7 @@
         if (somaCents !== totalCents) {
             const valorTotalFormatado = valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
             const somaFormatada = soma.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-            alert(`⚠️ A soma das parcelas deve ser igual ao valor total do registro (${valorTotalFormatado}).\nSoma atual das parcelas no grid: ${somaFormatada}`);
+            exibirMensagemFeedback(`⚠️ A soma das parcelas deve ser igual ao valor total do registro (${valorTotalFormatado}).<br>Soma atual das parcelas no grid: ${somaFormatada}`, "warning", true);
             return;
         }
 
@@ -457,17 +592,75 @@
             const dados = await response.json();
 
             if (dados.sucesso) {
-                alert("✅ " + dados.mensagem);
                 location.reload();
             } else {
-                alert("❌ Erro ao gerar: " + dados.mensagem);
+                exibirMensagemFeedback("❌ Erro ao gerar: " + dados.mensagem, "danger", true);
             }
 
         } catch (erro) {
-            alert("🚨 Erro de comunicação com o servidor.");
+            exibirMensagemFeedback("🚨 Erro de comunicação com o servidor.", "danger", true);
         }
     }
 
+    function ordenarTabela(indexColuna, tipo) {
+        const tabela = document.querySelector(".table");
+        const tbody = tabela.querySelector("tbody");
+        const linhas = Array.from(tbody.querySelectorAll("tr"));
+        
+        if (linhas.length <= 1 && linhas[0].querySelector("td[colspan]")) {
+            return;
+        }
+
+        const thClicado = tabela.querySelectorAll("thead th")[indexColuna];
+        const direcaoAtual = thClicado.getAttribute("data-sort") || "none";
+        let novaDirecao = "asc";
+        if (direcaoAtual === "asc") {
+            novaDirecao = "desc";
+        }
+
+        // Reseta direções e ícones de outras colunas
+        tabela.querySelectorAll("thead th").forEach((th, idx) => {
+            if (idx > 0) {
+                th.removeAttribute("data-sort");
+                const icon = th.querySelector(".sort-icon");
+                if (icon) icon.innerHTML = "";
+            }
+        });
+
+        // Configura direção e seta na coluna clicada
+        thClicado.setAttribute("data-sort", novaDirecao);
+        const sortIcon = thClicado.querySelector(".sort-icon");
+        if (sortIcon) {
+            sortIcon.innerHTML = novaDirecao === "asc" ? " ▲" : " ▼";
+        }
+
+        // Executa a ordenação
+        linhas.sort((a, b) => {
+            const celulaA = a.querySelectorAll("td")[indexColuna];
+            const celulaB = b.querySelectorAll("td")[indexColuna];
+            
+            let valA = celulaA.getAttribute("data-order") || celulaA.textContent.trim();
+            let valB = celulaB.getAttribute("data-order") || celulaB.textContent.trim();
+
+            if (tipo === "num") {
+                valA = parseFloat(valA) || 0;
+                valB = parseFloat(valB) || 0;
+            } else if (tipo === "date") {
+                // Datas no formato YYYY-MM-DD podem ser comparadas diretamente como strings
+            } else {
+                return novaDirecao === "asc"
+                    ? valA.localeCompare(valB, 'pt-BR', { sensitivity: 'base' })
+                    : valB.localeCompare(valA, 'pt-BR', { sensitivity: 'base' });
+            }
+
+            if (valA < valB) return novaDirecao === "asc" ? -1 : 1;
+            if (valA > valB) return novaDirecao === "asc" ? 1 : -1;
+            return 0;
+        });
+
+        // Reanexa os elementos ordenados
+        linhas.forEach(linha => tbody.appendChild(linha));
+    }
 
 </script>
 {% endblock %}

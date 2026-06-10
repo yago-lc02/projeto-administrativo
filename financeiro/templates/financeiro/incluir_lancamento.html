@@ -60,15 +60,39 @@
                 <label class="form-label fw-bold text-secondary">Valor Total (R$)</label>
                 <div class="input-group">
                     <span class="input-group-text">R$</span>
-                    <input type="number" name="valor_total" step="0.01" min="0.01" class="form-control" placeholder="0,00" required>
+                    <input type="text" name="valor_total" id="valor_total" class="form-control text-end" placeholder="0,00" required>
                 </div>
             </div>
         </div>
 
         <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
-            <a href="{% url 'listar_lancamentos' %}" class="btn btn-outline-danger px-4">Cancelar</a>
+            <a href="{% url 'listar_lancamentos' %}" id="btn-cancelar" class="btn btn-outline-danger px-4">Cancelar</a>
             <button type="submit" class="btn btn-outline-success px-5 fw-bold shadow-sm">Salvar Lançamento</button>
         </div>
     </form>
 </div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const referer = document.referrer;
+        if (referer && referer.includes('/financeiro/lancamentos/')) {
+            document.getElementById('btn-cancelar').href = referer;
+        }
+
+        const inputValor = document.getElementById('valor_total');
+        if (inputValor) {
+            inputValor.addEventListener('input', function(e) {
+                let valor = e.target.value.replace(/\D/g, "");
+                if (!valor) {
+                    e.target.value = "";
+                    return;
+                }
+                let valorDecimal = (parseInt(valor) / 100).toFixed(2);
+                let partes = valorDecimal.split(".");
+                partes[0] = partes[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+                e.target.value = partes.join(",");
+            });
+        }
+    });
+</script>
 {% endblock %}

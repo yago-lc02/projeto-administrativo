@@ -37,14 +37,13 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    # Adicione estes dois aqui:
     'rest_framework',
     'corsheaders',
-    'financeiro', # Adicione esta linha aqui
+    'financeiro', 
 ]
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware', # Adicione esta linha
+    'corsheaders.middleware.CorsMiddleware', 
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -87,7 +86,7 @@ DATABASES = {
         'NAME': 'cashflow_db',
         'USER': 'yago_user',
         'PASSWORD': 'password123',
-        'HOST': 'projeto_final_db',  # ◄ Aponta para o serviço criado acima no mesmo arquivo
+        'HOST': 'projeto_final_db',
         'PORT': '5432',
     }
 }

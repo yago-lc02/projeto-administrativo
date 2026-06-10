@@ -57,7 +57,7 @@
                         <label class="form-label fw-semibold">Valor Total (R$)</label>
                         <div class="input-group">
                             <span class="input-group-text bg-light">R$</span>
-                            <input type="number" step="0.01" name="valor_total" class="form-control" value="{{ movimento.valor_total|stringformat:'.2f' }}" required>
+                            <input type="text" name="valor_total" id="valor_total" class="form-control text-end" value="{{ movimento.valor_total|stringformat:'.2f' }}" required>
                         </div>
                         <small class="text-muted">A alteração recalculará a 1ª parcela de consistência.</small>
                     </div>
@@ -69,11 +69,41 @@
                 </div>
 
                 <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
-                    <a href="{% url 'listar_lancamentos' %}?todos=true" class="btn btn-light px-4">Cancelar</a>
+                    <a href="{% url 'listar_lancamentos' %}?todos=true" id="btn-cancelar" class="btn btn-light px-4">Cancelar</a>
                     <button type="submit" class="btn btn-warning px-4 fw-semibold text-dark">Salvar Alterações</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const referer = document.referrer;
+        if (referer && referer.includes('/financeiro/lancamentos/')) {
+            document.getElementById('btn-cancelar').href = referer;
+        }
+
+        const inputValor = document.getElementById('valor_total');
+        if (inputValor) {
+            function formatar(valStr) {
+                let valor = valStr.replace(/\D/g, "");
+                if (!valor) return "";
+                let valorDecimal = (parseInt(valor) / 100).toFixed(2);
+                let partes = valorDecimal.split(".");
+                partes[0] = partes[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+                return partes.join(",");
+            }
+
+            // Formata o valor que vem carregado do banco
+            if (inputValor.value) {
+                inputValor.value = formatar(inputValor.value);
+            }
+
+            inputValor.addEventListener('input', function(e) {
+                e.target.value = formatar(e.target.value);
+            });
+        }
+    });
+</script>
 {% endblock %}
