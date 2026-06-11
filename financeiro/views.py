@@ -600,3 +600,240 @@ def analisador_json_tela(request):
 # =========================================================================
 def chat_rag_tela(request):
     return render(request, 'financeiro/chat.html')
+
+
+# =========================================================================
+# CRUD DE PESSOAS (PARCEIROS COMERCIAIS)
+# =========================================================================
+def listar_pessoas(request):
+    """
+    Controlador responsável por listar e filtrar os parceiros (Pessoas).
+    A tabela nasce vazia por padrão, carregando dados se pesquisado ou pelo botão "Todos".
+    """
+    nome_razao = request.GET.get('nome_razao_social', '').strip()
+    cnpj_cpf = request.GET.get('cnpj_cpf', '').strip()
+    tipo = request.GET.get('tipo', '').strip()
+    todos = request.GET.get('todos', '').strip()
+
+    pessoas = None
+
+    if todos == 'true' or nome_razao or cnpj_cpf or tipo:
+        pessoas = Pessoa.objects.filter(status_ativo=True).order_by('nome_razao_social')
+
+        if nome_razao:
+            pessoas = pessoas.filter(nome_razao_social__icontains=nome_razao)
+        if cnpj_cpf:
+            pessoas = pessoas.filter(cnpj_cpf__icontains=cnpj_cpf)
+        if tipo:
+            pessoas = pessoas.filter(tipo=tipo)
+
+    context = {
+        'pessoas': pessoas,
+    }
+    return render(request, 'financeiro/pessoas.html', context)
+
+
+def incluir_pessoa(request):
+    """
+    Controlador responsável por incluir um novo parceiro.
+    Garante a unicidade do CNPJ/CPF e trata reativação lógica caso o registro anterior estivesse inativo.
+    """
+    if request.method == 'POST':
+        nome_razao_social = request.POST.get('nome_razao_social', '').strip()
+        fantasia = request.POST.get('fantasia', '').strip() or None
+        cnpj_cpf = request.POST.get('cnpj_cpf', '').strip()
+        tipo = request.POST.get('tipo')
+
+        if not nome_razao_social or not cnpj_cpf or not tipo:
+            messages.error(request, 'Por favor, preencha todos os campos obrigatórios.')
+        else:
+            existente = Pessoa.objects.filter(cnpj_cpf=cnpj_cpf).first()
+            if existente:
+                if existente.status_ativo:
+                    messages.error(request, 'Este CNPJ / CPF já está cadastrado no sistema.')
+                    return render(request, 'financeiro/incluir_pessoa.html', {
+                        'nome_razao_social': nome_razao_social,
+                        'fantasia': fantasia,
+                        'cnpj_cpf': cnpj_cpf,
+                        'tipo': tipo,
+                    })
+                else:
+                    # Se existia inativo, reativa e atualiza
+                    existente.nome_razao_social = nome_razao_social
+                    existente.fantasia = fantasia
+                    existente.tipo = tipo
+                    existente.status_ativo = True
+                    existente.save()
+                    messages.success(request, 'Parceiro reativado e atualizado com sucesso!')
+                    return redirect(f"{reverse('listar_pessoas')}?todos=true")
+            else:
+                try:
+                    Pessoa.objects.create(
+                        nome_razao_social=nome_razao_social,
+                        fantasia=fantasia,
+                        cnpj_cpf=cnpj_cpf,
+                        tipo=tipo,
+                        status_ativo=True
+                    )
+                    messages.success(request, 'Parceiro cadastrado com sucesso!')
+                    return redirect(f"{reverse('listar_pessoas')}?todos=true")
+                except Exception as e:
+                    messages.error(request, f'Erro ao cadastrar parceiro: {str(e)}')
+
+    return render(request, 'financeiro/incluir_pessoa.html')
+
+
+def alterar_pessoa(request, pessoa_id):
+    """
+    Controlador responsável por alterar os dados de um parceiro existente.
+    """
+    pessoa = get_object_or_404(Pessoa, id=pessoa_id)
+
+    if request.method == 'POST':
+        nome_razao_social = request.POST.get('nome_razao_social', '').strip()
+        fantasia = request.POST.get('fantasia', '').strip() or None
+        cnpj_cpf = request.POST.get('cnpj_cpf', '').strip()
+        tipo = request.POST.get('tipo')
+
+        if not nome_razao_social or not cnpj_cpf or not tipo:
+            messages.error(request, 'Por favor, preencha todos os campos obrigatórios.')
+        else:
+            existente = Pessoa.objects.filter(cnpj_cpf=cnpj_cpf).exclude(id=pessoa.id).first()
+            if existente:
+                messages.error(request, 'Este CNPJ / CPF já está cadastrado para outro parceiro.')
+            else:
+                try:
+                    pessoa.nome_razao_social = nome_razao_social
+                    pessoa.fantasia = fantasia
+                    pessoa.cnpj_cpf = cnpj_cpf
+                    pessoa.tipo = tipo
+                    pessoa.save()
+                    messages.success(request, 'Parceiro atualizado com sucesso!')
+                    return redirect(f"{reverse('listar_pessoas')}?todos=true")
+                except Exception as e:
+                    messages.error(request, f'Erro ao atualizar parceiro: {str(e)}')
+
+    return render(request, 'financeiro/alterar_pessoa.html', {'pessoa': pessoa})
+
+
+def excluir_pessoa(request, pessoa_id):
+    """
+    Controlador responsável por realizar a inativação lógica do parceiro (exclusão lógica).
+    """
+    pessoa = get_object_or_404(Pessoa, id=pessoa_id)
+
+    if request.method == 'POST':
+        try:
+            pessoa.status_ativo = False
+            pessoa.save()
+            messages.success(request, 'Parceiro inativado com sucesso!')
+        except Exception as e:
+            messages.error(request, f'Erro ao inativar parceiro: {str(e)}')
+
+        return redirect(f"{reverse('listar_pessoas')}?todos=true")
+
+    return render(request, 'financeiro/excluir_pessoa.html', {'pessoa': pessoa})
+
+
+# =========================================================================
+# CRUD DE CLASSIFICAÇÕES (CATEGORIAS)
+# =========================================================================
+def listar_classificacoes(request):
+    """
+    Controlador responsável por listar e filtrar as classificações.
+    A tabela nasce vazia por padrão, carregando dados se pesquisado ou pelo botão "Todos".
+    """
+    descricao = request.GET.get('descricao', '').strip()
+    categoria = request.GET.get('categoria', '').strip()
+    tipo = request.GET.get('tipo', '').strip()
+    todos = request.GET.get('todos', '').strip()
+
+    classificacoes = None
+
+    if todos == 'true' or descricao or categoria or tipo:
+        classificacoes = Classificacao.objects.filter(status_ativo=True).order_by('descricao')
+
+        if descricao:
+            classificacoes = classificacoes.filter(descricao__icontains=descricao)
+        if categoria:
+            classificacoes = classificacoes.filter(categoria__icontains=categoria)
+        if tipo:
+            classificacoes = classificacoes.filter(tipo=tipo)
+
+    context = {
+        'classificacoes': classificacoes,
+    }
+    return render(request, 'financeiro/classificacoes.html', context)
+
+
+def incluir_classificacao(request):
+    """
+    Controlador responsável por incluir uma nova classificação.
+    """
+    if request.method == 'POST':
+        descricao = request.POST.get('descricao', '').strip()
+        categoria = request.POST.get('categoria', '').strip() or None
+        tipo = request.POST.get('tipo')
+
+        if not descricao or not tipo:
+            messages.error(request, 'Por favor, preencha todos os campos obrigatórios.')
+        else:
+            try:
+                Classificacao.objects.create(
+                    descricao=descricao,
+                    categoria=categoria,
+                    tipo=tipo,
+                    status_ativo=True
+                )
+                messages.success(request, 'Classificação cadastrada com sucesso!')
+                return redirect(f"{reverse('listar_classificacoes')}?todos=true")
+            except Exception as e:
+                messages.error(request, f'Erro ao cadastrar classificação: {str(e)}')
+
+    return render(request, 'financeiro/incluir_classificacao.html')
+
+
+def alterar_classificacao(request, classificacao_id):
+    """
+    Controlador responsável por alterar os dados de uma classificação existente.
+    """
+    classificacao = get_object_or_404(Classificacao, id=classificacao_id)
+
+    if request.method == 'POST':
+        descricao = request.POST.get('descricao', '').strip()
+        categoria = request.POST.get('categoria', '').strip() or None
+        tipo = request.POST.get('tipo')
+
+        if not descricao or not tipo:
+            messages.error(request, 'Por favor, preencha todos os campos obrigatórios.')
+        else:
+            try:
+                classificacao.descricao = descricao
+                classificacao.categoria = categoria
+                classificacao.tipo = tipo
+                classificacao.save()
+                messages.success(request, 'Classificação atualizada com sucesso!')
+                return redirect(f"{reverse('listar_classificacoes')}?todos=true")
+            except Exception as e:
+                messages.error(request, f'Erro ao atualizar classificação: {str(e)}')
+
+    return render(request, 'financeiro/alterar_classificacao.html', {'classificacao': classificacao})
+
+
+def excluir_classificacao(request, classificacao_id):
+    """
+    Controlador responsável por inativar logicamente uma classificação (exclusão lógica).
+    """
+    classificacao = get_object_or_404(Classificacao, id=classificacao_id)
+
+    if request.method == 'POST':
+        try:
+            classificacao.status_ativo = False
+            classificacao.save()
+            messages.success(request, 'Classificação inativada com sucesso!')
+        except Exception as e:
+            messages.error(request, f'Erro ao inativar classificação: {str(e)}')
+
+        return redirect(f"{reverse('listar_classificacoes')}?todos=true")
+
+    return render(request, 'financeiro/excluir_classificacao.html', {'classificacao': classificacao})

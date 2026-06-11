@@ -1,0 +1,89 @@
+{% extends 'financeiro/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card shadow-sm border-0 rounded">
+        <div class="card-header bg-warning text-dark d-flex align-items-center justify-content-between py-3">
+            <h5 class="mb-0 fw-bold">Alterar Parceiro Comercial</h5>
+            <span class="badge bg-dark text-white">ID: {{ pessoa.id }}</span>
+        </div>
+        
+        <div class="card-body p-4">
+            <form action="{% url 'alterar_pessoa' pessoa.id %}" method="POST">
+                {% csrf_token %}
+                
+                <div class="row g-3">
+                    <div class="col-md-12">
+                        <label class="form-label fw-semibold">Razão Social / Nome Completo</label>
+                        <input type="text" name="nome_razao_social" class="form-control" value="{{ pessoa.nome_razao_social }}" required>
+                    </div>
+
+                    <div class="col-md-12">
+                        <label class="form-label fw-semibold">Nome Fantasia <span class="text-muted fw-normal">(Opcional)</span></label>
+                        <input type="text" name="fantasia" class="form-control" value="{{ pessoa.fantasia|default_if_none:'' }}">
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">CNPJ / CPF</label>
+                        <input type="text" name="cnpj_cpf" id="cnpj_cpf" class="form-control" value="{{ pessoa.cnpj_cpf }}" maxlength="18" required>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Tipo de Parceiro</label>
+                        <select name="tipo" class="form-select" required>
+                            <option value="FORNECEDOR" {% if pessoa.tipo == 'FORNECEDOR' %}selected{% endif %}>Fornecedor (Credor)</option>
+                            <option value="FATURADO" {% if pessoa.tipo == 'FATURADO' %}selected{% endif %}>Faturado (Cliente)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                    <a href="{% url 'listar_pessoas' %}?todos=true" id="btn-cancelar" class="btn btn-light px-4">Cancelar</a>
+                    <button type="submit" class="btn btn-warning px-4 fw-semibold text-dark">Salvar Alterações</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const referer = document.referrer;
+        if (referer && referer.includes('/financeiro/pessoas/')) {
+            document.getElementById('btn-cancelar').href = referer;
+        }
+
+        const inputCnpjCpf = document.getElementById('cnpj_cpf');
+        if (inputCnpjCpf) {
+            function aplicarMascara(value) {
+                let cleanValue = value.replace(/\D/g, "");
+                
+                if (cleanValue.length > 14) {
+                    cleanValue = cleanValue.slice(0, 14);
+                }
+
+                if (cleanValue.length <= 11) {
+                    return cleanValue
+                        .replace(/(\d{3})(\d)/, "$1.$2")
+                        .replace(/(\d{3})(\d)/, "$1.$2")
+                        .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+                } else {
+                    return cleanValue
+                        .replace(/^(\d{2})(\d)/, "$1.$2")
+                        .replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3")
+                        .replace(/\.(\d{3})(\d)/, ".$1/$2")
+                        .replace(/(\d{4})(\d{1,2})$/, "$1-$2");
+                }
+            }
+
+            inputCnpjCpf.addEventListener('input', function(e) {
+                e.target.value = aplicarMascara(e.target.value);
+            });
+
+            if (inputCnpjCpf.value) {
+                inputCnpjCpf.value = aplicarMascara(inputCnpjCpf.value);
+            }
+        }
+    });
+</script>
+{% endblock %}

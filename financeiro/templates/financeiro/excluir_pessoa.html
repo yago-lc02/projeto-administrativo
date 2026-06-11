@@ -1,0 +1,77 @@
+{% extends 'financeiro/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card shadow-sm border-0 rounded">
+        <div class="card-header bg-danger text-white d-flex align-items-center justify-content-between py-3">
+            <h5 class="mb-0 fw-bold">Confirmar Inativação (Exclusão Lógica)</h5>
+            <span class="badge bg-dark text-white">ID: {{ pessoa.id }}</span>
+        </div>
+        
+        <div class="card-body p-4">
+            <div class="alert alert-warning border-0 shadow-sm mb-4">
+                <h5 class="alert-heading fw-bold">Atenção!</h5>
+                <p class="mb-0">Deseja realmente efetuar a <strong>EXCLUSÃO LÓGICA (Inativar)</strong> deste parceiro comercial no sistema?</p>
+            </div>
+
+            <h5 class="text-secondary border-bottom pb-2 mb-3 fw-bold" style="border-bottom-style: dashed !important; border-bottom-width: 2px !important;">Detalhes do Parceiro</h5>
+            
+            <div class="row g-3 mb-4">
+                <div class="col-md-12">
+                    <label class="form-label fw-semibold text-muted">Razão Social / Nome</label>
+                    <div class="form-control-plaintext fw-bold">{{ pessoa.nome_razao_social }}</div>
+                </div>
+
+                <div class="col-md-12">
+                    <label class="form-label fw-semibold text-muted">Nome Fantasia</label>
+                    <div class="form-control-plaintext fw-bold">{{ pessoa.fantasia|default_if_none:"-" }}</div>
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold text-muted">CNPJ / CPF</label>
+                    <div class="form-control-plaintext fw-bold id-cnpj-cpf">{{ pessoa.cnpj_cpf }}</div>
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold text-muted">Tipo de Parceiro</label>
+                    <div class="form-control-plaintext fw-bold">
+                        {% if pessoa.tipo == 'FATURADO' %}
+                        <span class="badge bg-info text-dark px-3 py-2 rounded-pill">Faturado (Cliente)</span>
+                        {% else %}
+                        <span class="badge bg-secondary text-white px-3 py-2 rounded-pill">Fornecedor</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <form action="{% url 'excluir_pessoa' pessoa.id %}" method="POST">
+                {% csrf_token %}
+                <div class="d-flex justify-content-end gap-2 pt-3 border-top">
+                    <a href="{% url 'listar_pessoas' %}?todos=true" id="btn-cancelar" class="btn btn-light px-4">Cancelar</a>
+                    <button type="submit" class="btn btn-danger px-4 fw-semibold text-white">Sim, Inativar Parceiro</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const referer = document.referrer;
+        if (referer && referer.includes('/financeiro/pessoas/')) {
+            document.getElementById('btn-cancelar').href = referer;
+        }
+
+        // Formata CNPJ/CPF na exibição
+        const el = document.querySelector(".id-cnpj-cpf");
+        if (el) {
+            let val = el.textContent.replace(/\D/g, "");
+            if (val.length === 11) {
+                el.textContent = val.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+            } else if (val.length === 14) {
+                el.textContent = val.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
+            }
+        }
+    });
+</script>
+{% endblock %}

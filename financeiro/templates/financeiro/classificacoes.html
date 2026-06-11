@@ -1,0 +1,179 @@
+{% extends 'financeiro/base.html' %}
+
+{% block content %}
+{% load l10n %}
+
+<div id="js-messages-container" class="mb-3"></div>
+
+<div class="card-custom">
+    <h5 class="card-title-custom">Cadastro de Classificações</h5>
+    <form method="GET" action="{% url 'listar_classificacoes' %}" class="row g-3">
+        <div class="col-md-4">
+            <label class="form-label font-weight-bold">Descrição</label>
+            <input type="text" name="descricao" class="form-control" placeholder="Digite a descrição..."
+                value="{{ request.GET.descricao }}">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label font-weight-bold">Categoria</label>
+            <input type="text" name="categoria" class="form-control" placeholder="Digite a categoria..."
+                value="{{ request.GET.categoria }}">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label font-weight-bold">Tipo</label>
+            <select name="tipo" class="form-control">
+                <option value="">Selecione...</option>
+                <option value="DESPESA" {% if request.GET.tipo == 'DESPESA' %}selected{% endif %}>Despesa</option>
+                <option value="RECEITA" {% if request.GET.tipo == 'RECEITA' %}selected{% endif %}>Receita</option>
+            </select>
+        </div>
+        <div class="col-md-2 d-flex align-items-end gap-2">
+            <button type="submit" class="btn btn-verde w-50 fw-bold">Consultar</button>
+            <a href="{% url 'listar_classificacoes' %}?todos=true" class="btn btn-secondary w-50 fw-bold d-flex align-items-center justify-content-center">Todos</a>
+        </div>
+    </form>
+</div>
+
+<div class="card-custom">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+        <div class="d-flex gap-2">
+            <button onclick="executarAcao('incluir')" class="btn btn-sm btn-outline-success px-3 fw-bold">Incluir</button>
+            <button onclick="executarAcao('alterar')" class="btn btn-sm btn-outline-warning px-3 fw-bold">Alterar</button>
+            <button onclick="executarAcao('excluir')" class="btn btn-sm btn-outline-danger px-3 fw-bold">Excluir</button>
+        </div>
+    </div>
+
+    <div class="table-responsive rounded border shadow-sm" style="min-height: 300px; overflow-x: auto;">
+        <table class="table table-bordered table-hover align-middle mb-0" style="min-width: 900px;">
+            <thead class="table-success">
+                <tr class="text-center align-middle">
+                    <th style="width: 5%; user-select: none;"> </th>
+                    <th style="width: 15%; cursor: pointer; user-select: none;" onclick="ordenarTabela(1, 'num')">Código <span class="sort-icon"></span></th>
+                    <th style="width: 45%; cursor: pointer; user-select: none;" onclick="ordenarTabela(2, 'text')">Descrição <span class="sort-icon"></span></th> 
+                    <th style="width: 20%; cursor: pointer; user-select: none;" onclick="ordenarTabela(3, 'text')">Categoria <span class="sort-icon"></span></th> 
+                    <th style="width: 15%; cursor: pointer; user-select: none;" onclick="ordenarTabela(4, 'text')">Tipo <span class="sort-icon"></span></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if classificacoes %}
+                {% for c in classificacoes %}
+                <tr>
+                    <td class="text-center align-middle">
+                        <input type="radio" name="linha_selecionada" value="{{ c.id }}">
+                    </td>
+                    <td class="text-center" data-order="{{ c.id }}">{{ c.id|stringformat:"03d" }}</td>
+                    <td>{{ c.descricao }}</td>
+                    <td>{{ c.categoria|default_if_none:"-" }}</td>
+                    <td class="text-center" data-order="{{ c.tipo }}">
+                        {% if c.tipo == 'RECEITA' %}
+                        <span class="badge badge-receita px-3 py-2 rounded-pill">Receita</span>
+                        {% else %}
+                        <span class="badge badge-despesa px-3 py-2 rounded-pill">Despesa</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+                {% else %}
+                <tr>
+                    <td colspan="5" class="text-center text-muted py-5">
+                        <div class="d-flex flex-column align-items-center">Utilize os filtros acima ou clique em "Todos" para carregar as classificações ativas do sistema.</div>
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    function exibirMensagemFeedback(mensagem, tipo) {
+        const container = document.getElementById('js-messages-container');
+        if (!container) return;
+        container.innerHTML = '';
+
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${tipo} alert-dismissible fade show shadow-sm`;
+        alertDiv.setAttribute('role', 'alert');
+        alertDiv.innerHTML = `
+            ${mensagem}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        container.appendChild(alertDiv);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function executarAcao(acao) {
+        if (acao === 'incluir') {
+            window.location.href = "{% url 'incluir_classificacao' %}";
+            return;
+        }
+
+        const selecionado = document.querySelector('input[name="linha_selecionada"]:checked');
+        if (!selecionado) {
+            exibirMensagemFeedback('Por favor, selecione uma classificação na tabela usando o botão circular da lateral esquerda.', 'warning');
+            return;
+        }
+
+        const id = selecionado.value;
+
+        if (acao === 'alterar') {
+            window.location.href = `/financeiro/classificacoes/alterar/${id}/`;
+        } else if (acao === 'excluir') {
+            window.location.href = `/financeiro/classificacoes/excluir/${id}/`;
+        }
+    }
+
+    function ordenarTabela(indexColuna, tipo) {
+        const tabela = document.querySelector(".table");
+        const tbody = tabela.querySelector("tbody");
+        const linhas = Array.from(tbody.querySelectorAll("tr"));
+        
+        if (linhas.length <= 1 && linhas[0].querySelector("td[colspan]")) {
+            return;
+        }
+
+        const thClicado = tabela.querySelectorAll("thead th")[indexColuna];
+        const direcaoAtual = thClicado.getAttribute("data-sort") || "none";
+        let novaDirecao = "asc";
+        if (direcaoAtual === "asc") {
+            novaDirecao = "desc";
+        }
+
+        tabela.querySelectorAll("thead th").forEach((th, idx) => {
+            if (idx > 0) {
+                th.removeAttribute("data-sort");
+                const icon = th.querySelector(".sort-icon");
+                if (icon) icon.innerHTML = "";
+            }
+        });
+
+        thClicado.setAttribute("data-sort", novaDirecao);
+        const sortIcon = thClicado.querySelector(".sort-icon");
+        if (sortIcon) {
+            sortIcon.innerHTML = novaDirecao === "asc" ? " ▲" : " ▼";
+        }
+
+        linhas.sort((a, b) => {
+            const celulaA = a.querySelectorAll("td")[indexColuna];
+            const celulaB = b.querySelectorAll("td")[indexColuna];
+            
+            let valA = celulaA.getAttribute("data-order") || celulaA.textContent.trim();
+            let valB = celulaB.getAttribute("data-order") || celulaB.textContent.trim();
+
+            if (tipo === "num") {
+                valA = parseFloat(valA) || 0;
+                valB = parseFloat(valB) || 0;
+            } else {
+                return novaDirecao === "asc"
+                    ? valA.localeCompare(valB, 'pt-BR', { sensitivity: 'base' })
+                    : valB.localeCompare(valA, 'pt-BR', { sensitivity: 'base' });
+            }
+
+            if (valA < valB) return novaDirecao === "asc" ? -1 : 1;
+            if (valA > valB) return novaDirecao === "asc" ? 1 : -1;
+            return 0;
+        });
+
+        linhas.forEach(linha => tbody.appendChild(linha));
+    }
+</script>
+{% endblock %}

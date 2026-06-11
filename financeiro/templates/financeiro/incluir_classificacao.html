@@ -1,0 +1,52 @@
+{% extends 'financeiro/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card shadow-sm border-0 rounded">
+        <div class="card-header bg-success text-white py-3">
+            <h5 class="mb-0 fw-bold">Incluir Classificação / Categoria</h5>
+        </div>
+        
+        <div class="card-body p-4">
+            <form method="POST" action="{% url 'incluir_classificacao' %}">
+                {% csrf_token %}
+
+                <div class="row g-3">
+                    <div class="col-md-12">
+                        <label class="form-label fw-semibold">Descrição da Classificação</label>
+                        <input type="text" name="descricao" class="form-control" placeholder="Ex: Combustível, Sementes, Vendas de Soja..." required>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Categoria Geral</label>
+                        <input type="text" name="categoria" class="form-control" placeholder="Ex: Custos Variáveis, Custos Fixos, Receita Bruta...">
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Tipo de Classificação</label>
+                        <select name="tipo" class="form-select" required>
+                            <option value="" selected disabled>Selecione o tipo...</option>
+                            <option value="DESPESA">Despesa (Débito)</option>
+                            <option value="RECEITA">Receita (Crédito)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                    <a href="{% url 'listar_classificacoes' %}?todos=true" id="btn-cancelar" class="btn btn-light px-4">Cancelar</a>
+                    <button type="submit" class="btn btn-success px-4 fw-semibold text-white">Salvar Classificação</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const referer = document.referrer;
+        if (referer && referer.includes('/financeiro/classificacoes/')) {
+            document.getElementById('btn-cancelar').href = referer;
+        }
+    });
+</script>
+{% endblock %}

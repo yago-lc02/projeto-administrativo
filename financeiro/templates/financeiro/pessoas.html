@@ -1,0 +1,199 @@
+{% extends 'financeiro/base.html' %}
+
+{% block content %}
+{% load l10n %}
+
+<div id="js-messages-container" class="mb-3"></div>
+
+<div class="card-custom">
+    <h5 class="card-title-custom">Cadastro de Parceiros (Pessoas)</h5>
+    <form method="GET" action="{% url 'listar_pessoas' %}" class="row g-3">
+        <div class="col-md-4">
+            <label class="form-label font-weight-bold">Nome / Razão Social</label>
+            <input type="text" name="nome_razao_social" class="form-control" placeholder="Digite o nome..."
+                value="{{ request.GET.nome_razao_social }}">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label font-weight-bold">CNPJ / CPF</label>
+            <input type="text" name="cnpj_cpf" class="form-control" placeholder="Digite o documento..."
+                value="{{ request.GET.cnpj_cpf }}">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label font-weight-bold">Tipo de Parceiro</label>
+            <select name="tipo" class="form-control">
+                <option value="">Selecione...</option>
+                <option value="FORNECEDOR" {% if request.GET.tipo == 'FORNECEDOR' %}selected{% endif %}>Fornecedor</option>
+                <option value="FATURADO" {% if request.GET.tipo == 'FATURADO' %}selected{% endif %}>Faturado (Cliente)</option>
+            </select>
+        </div>
+        <div class="col-md-2 d-flex align-items-end gap-2">
+            <button type="submit" class="btn btn-verde w-50 fw-bold">Consultar</button>
+            <a href="{% url 'listar_pessoas' %}?todos=true" class="btn btn-secondary w-50 fw-bold d-flex align-items-center justify-content-center">Todos</a>
+        </div>
+    </form>
+</div>
+
+<div class="card-custom">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+        <div class="d-flex gap-2">
+            <button onclick="executarAcao('incluir')" class="btn btn-sm btn-outline-success px-3 fw-bold">Incluir</button>
+            <button onclick="executarAcao('alterar')" class="btn btn-sm btn-outline-warning px-3 fw-bold">Alterar</button>
+            <button onclick="executarAcao('excluir')" class="btn btn-sm btn-outline-danger px-3 fw-bold">Excluir</button>
+        </div>
+    </div>
+
+    <div class="table-responsive rounded border shadow-sm" style="min-height: 300px; overflow-x: auto;">
+        <table class="table table-bordered table-hover align-middle mb-0" style="min-width: 900px;">
+            <thead class="table-success">
+                <tr class="text-center align-middle">
+                    <th style="width: 5%; user-select: none;"> </th>
+                    <th style="width: 10%; cursor: pointer; user-select: none;" onclick="ordenarTabela(1, 'num')">Código <span class="sort-icon"></span></th>
+                    <th style="width: 35%; cursor: pointer; user-select: none;" onclick="ordenarTabela(2, 'text')">Razão Social / Nome <span class="sort-icon"></span></th> 
+                    <th style="width: 25%; cursor: pointer; user-select: none;" onclick="ordenarTabela(3, 'text')">Nome Fantasia <span class="sort-icon"></span></th> 
+                    <th style="width: 15%; cursor: pointer; user-select: none;" onclick="ordenarTabela(4, 'text')">CNPJ / CPF <span class="sort-icon"></span></th> 
+                    <th style="width: 10%; cursor: pointer; user-select: none;" onclick="ordenarTabela(5, 'text')">Tipo <span class="sort-icon"></span></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if pessoas %}
+                {% for pessoa in pessoas %}
+                <tr>
+                    <td class="text-center align-middle">
+                        <input type="radio" name="linha_selecionada" value="{{ pessoa.id }}">
+                    </td>
+                    <td class="text-center" data-order="{{ pessoa.id }}">{{ pessoa.id|stringformat:"03d" }}</td>
+                    <td>{{ pessoa.nome_razao_social }}</td>
+                    <td>{{ pessoa.fantasia|default_if_none:"-" }}</td>
+                    <td class="text-center class-cnpj-cpf" data-raw-val="{{ pessoa.cnpj_cpf }}">{{ pessoa.cnpj_cpf }}</td>
+                    <td class="text-center" data-order="{{ pessoa.tipo }}">
+                        {% if pessoa.tipo == 'FATURADO' %}
+                        <span class="badge bg-info text-dark px-3 py-2 rounded-pill">Faturado</span>
+                        {% else %}
+                        <span class="badge bg-secondary text-white px-3 py-2 rounded-pill">Fornecedor</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+                {% else %}
+                <tr>
+                    <td colspan="6" class="text-center text-muted py-5">
+                        <div class="d-flex flex-column align-items-center">Utilize os filtros acima ou clique em "Todos" para carregar os parceiros ativos do sistema.</div>
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    function exibirMensagemFeedback(mensagem, tipo) {
+        const container = document.getElementById('js-messages-container');
+        if (!container) return;
+        container.innerHTML = '';
+
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${tipo} alert-dismissible fade show shadow-sm`;
+        alertDiv.setAttribute('role', 'alert');
+        alertDiv.innerHTML = `
+            ${mensagem}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        container.appendChild(alertDiv);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function executarAcao(acao) {
+        if (acao === 'incluir') {
+            window.location.href = "{% url 'incluir_pessoa' %}";
+            return;
+        }
+
+        const selecionado = document.querySelector('input[name="linha_selecionada"]:checked');
+        if (!selecionado) {
+            exibirMensagemFeedback('Por favor, selecione um parceiro comercial na tabela usando o botão circular da lateral esquerda.', 'warning');
+            return;
+        }
+
+        const id = selecionado.value;
+
+        if (acao === 'alterar') {
+            window.location.href = `/financeiro/pessoas/alterar/${id}/`;
+        } else if (acao === 'excluir') {
+            window.location.href = `/financeiro/pessoas/excluir/${id}/`;
+        }
+    }
+
+    function ordenarTabela(indexColuna, tipo) {
+        const tabela = document.querySelector(".table");
+        const tbody = tabela.querySelector("tbody");
+        const linhas = Array.from(tbody.querySelectorAll("tr"));
+        
+        if (linhas.length <= 1 && linhas[0].querySelector("td[colspan]")) {
+            return;
+        }
+
+        const thClicado = tabela.querySelectorAll("thead th")[indexColuna];
+        const direcaoAtual = thClicado.getAttribute("data-sort") || "none";
+        let novaDirecao = "asc";
+        if (direcaoAtual === "asc") {
+            novaDirecao = "desc";
+        }
+
+        tabela.querySelectorAll("thead th").forEach((th, idx) => {
+            if (idx > 0) {
+                th.removeAttribute("data-sort");
+                const icon = th.querySelector(".sort-icon");
+                if (icon) icon.innerHTML = "";
+            }
+        });
+
+        thClicado.setAttribute("data-sort", novaDirecao);
+        const sortIcon = thClicado.querySelector(".sort-icon");
+        if (sortIcon) {
+            sortIcon.innerHTML = novaDirecao === "asc" ? " ▲" : " ▼";
+        }
+
+        linhas.sort((a, b) => {
+            const celulaA = a.querySelectorAll("td")[indexColuna];
+            const celulaB = b.querySelectorAll("td")[indexColuna];
+            
+            let valA = celulaA.getAttribute("data-order") || celulaA.textContent.trim();
+            let valB = celulaB.getAttribute("data-order") || celulaB.textContent.trim();
+
+            if (tipo === "num") {
+                valA = parseFloat(valA) || 0;
+                valB = parseFloat(valB) || 0;
+            } else {
+                return novaDirecao === "asc"
+                    ? valA.localeCompare(valB, 'pt-BR', { sensitivity: 'base' })
+                    : valB.localeCompare(valA, 'pt-BR', { sensitivity: 'base' });
+            }
+
+            if (valA < valB) return novaDirecao === "asc" ? -1 : 1;
+            if (valA > valB) return novaDirecao === "asc" ? 1 : -1;
+            return 0;
+        });
+
+        linhas.forEach(linha => tbody.appendChild(linha));
+    }
+
+    // Função para formatar CNPJ / CPF na exibição da tabela
+    function formatarCNPJCPF(val) {
+        val = val.replace(/\D/g, "");
+        if (val.length === 11) {
+            return val.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+        } else if (val.length === 14) {
+            return val.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
+        }
+        return val;
+    }
+
+    document.addEventListener("DOMContentLoaded", function() {
+        document.querySelectorAll(".class-cnpj-cpf").forEach(function(td) {
+            const rawVal = td.getAttribute("data-raw-val") || td.textContent;
+            td.textContent = formatarCNPJCPF(rawVal);
+        });
+    });
+</script>
+{% endblock %}

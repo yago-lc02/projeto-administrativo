@@ -183,6 +183,12 @@
                 <a href="{% url 'listar_lancamentos' %}?todos=true" class="menu-link {% if request.resolver_match.url_name == 'listar_lancamentos' or request.resolver_match.url_name == 'gerar_parcelas' %}active-menu{% endif %}">
                     <span>📊</span> Tela Principal
                 </a>
+                <a href="{% url 'listar_pessoas' %}" class="menu-link {% if request.resolver_match.url_name == 'listar_pessoas' or request.resolver_match.url_name == 'incluir_pessoa' or request.resolver_match.url_name == 'alterar_pessoa' or request.resolver_match.url_name == 'excluir_pessoa' %}active-menu{% endif %}">
+                    <span>👥</span> Parceiros (Pessoas)
+                </a>
+                <a href="{% url 'listar_classificacoes' %}" class="menu-link {% if request.resolver_match.url_name == 'listar_classificacoes' or request.resolver_match.url_name == 'incluir_classificacao' or request.resolver_match.url_name == 'alterar_classificacao' or request.resolver_match.url_name == 'excluir_classificacao' %}active-menu{% endif %}">
+                    <span>🏷️</span> Classificações
+                </a>
                 <a href="{% url 'interpretar_pdf' %}" class="menu-link {% if request.resolver_match.url_name == 'interpretar_pdf' %}active-menu{% endif %}">
                     <span>📄</span> Extrator de NF
                 </a>
