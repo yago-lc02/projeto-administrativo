@@ -17,13 +17,15 @@ O sistema conta com regras rígidas de consistência de parcelamentos, auditoria
 
 ---
 
-## ⚙️ Funcionalidades Principais (Etapa 4)
+## ⚙️ Funcionalidades Principais (Etapa 4 - Concluída)
 
-1. **Painel de Lançamentos:** Listagem reativa com filtros dinâmicos por Tipo de Movimentação.
-2. **Geração de Parcelas:** Algoritmo dinâmico que divide valores totais respeitando intervalos de 30 dias e garantindo a paridade da primeira parcela de consistência.
-3. **Alteração Segura:** Edição completa de metadados com recálculo automático do cronograma financeiro associado.
-4. **Exclusão Lógica:** Inativação de registros (`status_ativo=False`) mantendo a integridade histórica dos dados no banco, conforme requisitos de auditoria.
-5. **Auditor Sênior (Chat RAG):** Chat alimentado por IA capaz de ler e interpretar o banco de dados dinamicamente usando buscas por metadados textuais ou proximidade semântica por embeddings.
+1. **Painel de Lançamentos:** Listagem reativa com filtros dinâmicos e simultâneos por descrição, tipo e parceiro.
+2. **CRUD Completo de Parceiros (Pessoas):** Interface gráfica dedicada para cadastrar, listar, editar e inativar Fornecedores, Clientes e Faturados.
+3. **CRUD Completo de Categorias (Classificações):** Módulo dinâmico na interface para gerenciar classificações de Receitas e Despesas.
+4. **Geração de Parcelas:** Algoritmo dinâmico que divide valores totais respeitando intervalos de 30 dias e garantindo a paridade da primeira parcela de consistência.
+5. **Alteração Segura:** Edição completa de metadados com recálculo automático do cronograma financeiro associado.
+6. **Exclusão Lógica Unificada:** Inativação de registros (`status_ativo=False`) em cascata, mantendo a integridade histórica dos dados no banco para fins de auditoria.
+7. **Auditor Sênior (Chat RAG):** Chat alimentado por IA capaz de ler e interpretar o banco de dados dinamicamente usando buscas por metadados textuais ou proximidade semântica avançada por embeddings.
 
 ---
 
