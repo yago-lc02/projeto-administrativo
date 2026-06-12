@@ -1,0 +1,34 @@
+=====================================================================
+CASHFLOW - MANUAL DE ESPECIFICAÇÕES INICIAIS DE ACESSO (ETAPA 4)
+=====================================================================
+
+1. LINKS DE ACESSO AO SISTEMA (PRODUÇÃO):
+---------------------------------------------------------------------
+- Sistema Web Online: https://cashflowapp.pythonanywhere.com/financeiro/lancamentos/
+- Painel Django Admin: https://cashflowapp.pythonanywhere.com/admin/login/
+
+Credenciais de Acesso (Superuser):
+- Usuário: administrador
+- Senha: administrador
+
+*Nota: O banco de dados em produção já se encontra previamente populado com a nossa carga exclusiva de 200 registros altamente comutados para testes imediatos das buscas e do Chat RAG com IA.*
+
+2. ESTRUTURA DE REPOSITÓRIOS E COMPATIBILIDADE:
+---------------------------------------------------------------------
+Para cumprir todas as exigências da Etapa 4 (entrega do ambiente Dockerizado e hospedagem em servidor público), o projeto foi dividido estrategicamente em dois escopos complementares:
+
+A) REPOSITÓRIO PRINCIPAL (Ambiente Docker & PostgreSQL):
+👉 Link: https://github.com/yago-lc02/projeto-administrativo
+- Contém a arquitetura oficial do projeto contendo o 'Dockerfile' e 'docker-compose.yml' na raiz.
+- Configurado para subir a aplicação Django integrada ao banco de dados relacional PostgreSQL em containers isolados.
+- É o repositório que demonstra a conformidade com o requisito de conteinerização (Docker).
+
+B) REPOSITÓRIO DE DEPLOY (Ambiente de Produção SQLite):
+👉 Link: https://github.com/guiLhermeDev1050/projeto-administrativo-sqlite
+- Devido às restrições de execução de containers Docker e servidores de banco de dados externos na infraestrutura da conta gratuita do PythonAnywhere, isolamos esta versão dedicada para produção.
+- Utiliza a engine nativa SQLite para garantir paridade absoluta de código e funcionamento com a versão principal, porém sem a necessidade da camada de infraestrutura do Docker.
+
+3. DIRETRIZES DE VALIDAÇÃO PARA A BANCA:
+---------------------------------------------------------------------
+- Toda a lógica de negócio (regras rígidas de parcelamento, alteração segura, exclusão lógica com 'status_ativo=False' e o pipeline de IA Híbrida/RAG via API do Gemini) funciona exatamente da mesma forma em ambos os repositórios.
+- Os módulos de CRUD visual para Lançamentos, Pessoas (Parceiros) e Classificações (Categorias) estão 100% operacionais e integrados na interface de produção.
